@@ -27,7 +27,7 @@ end
 
 # Constructor
 World(state, circuit) = World(state, circuit, length(circuit))
-World() = World(MAT_TARGET,TARGET,0)
+World() = World(copy(MAT_TARGET),copy(TARGET),0)
 
 fidelity(u::AbstractMatrix) = round(abs(tr(u)) / DIM, digits=8)
 fidelity(env::World) = fidelity(env.state)
@@ -86,7 +86,7 @@ function to_mat(v::Vector)
 	m
 end
 
-@provide RL.clone(env::World) = World(env.state,env.circuit,env.depth)
+@provide RL.clone(env::World) = World(copy(env.state),copy(env.circuit),env.depth)
 @provide RL.state(env::World) = to_vec(env)
 @provide RL.setstate!(env::World, s::Vector) = (env.state = to_mat(s))
 @provide RL.valid_action_mask(env::World) = BitVector([1 for i in 1:length(GATESET)])
@@ -95,6 +95,8 @@ end
 
 ## Additional methods
 # Non mandatory methods that can be useful for the game representation
+
+GI.heuristic_value(::World) = 0.
 
 function GI.render(env::World)
 	print(env.circuit)
