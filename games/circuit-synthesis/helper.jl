@@ -40,3 +40,14 @@ function gateset_name(modes::Int, gateset::Vector, ctrl_set::Vector)
 	end
 	return gates_name
 end
+
+function randomCircuit(MODE::Int,GATESET::Vector,depth=3)
+	""" Generate a random circuit """
+	l = length(GATESET)
+	u = chain(MODE)
+	for _ in 1:depth
+		r = rand(1:l)
+		push!(u,GATESET[r])
+	end
+	return u
+end

@@ -10,8 +10,8 @@ const RL = CommonRLInterface
 const MAX_DEPTH::UInt8 = 20 # Max depth of circuit to explore
 const MODE = 2       # Number of modes
 const DIM = 2MODE    # Size of the matrix representing a circuit
-const TARGET = chain(MODE, put(1=>X), put(2=>H), control(2, 1=>X)) # Target Circuit
-const MAT_TARGET = Matrix(mat(TARGET)) # Matrix rep of the target circuit
+#const TARGET = chain(MODE, put(1=>X), put(2=>H), control(2, 1=>X)) # Target Circuit
+#const MAT_TARGET = Matrix(mat(TARGET)) # Matrix rep of the target circuit
 const GATE = [X, Z, H] # Possible Gates 
 const CONTROL = [X]       # Possible Control Gates
 
@@ -27,7 +27,10 @@ end
 
 # Constructor
 World(state, circuit) = World(state, circuit, length(circuit))
-World() = World(copy(MAT_TARGET),copy(TARGET),0)
+function World()
+	t = randomCircuit(MODE,GATESET)
+	return World(Matrix(mat(t)),t,0)
+end
 
 fidelity(u::AbstractMatrix) = round(abs(tr(u)) / DIM, digits=8)
 fidelity(env::World) = fidelity(env.state)
@@ -55,8 +58,10 @@ end
 
 # Reset the game
 function RL.reset!(env::World)
-	env.state = copy(MAT_TARGET)
-	env.circuit = copy(TARGET)
+	# Generate new target
+	t = randomCircuit(MODE,GATESET)
+	env.state = Matrix(mat(t))
+	env.circuit = t
 	env.depth = 0
 	return nothing
 end
@@ -115,6 +120,5 @@ function GI.parse_action(env::World, s)
 	idx = findfirst(==(s), GATESET)
 	return isnothing(idx) ? nothing : RL.actions(env)[idx]
 end
-
 
 GameSpec() = CommonRLInterfaceWrapper.Spec(World())
