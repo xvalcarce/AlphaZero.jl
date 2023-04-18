@@ -1,4 +1,3 @@
-
 function gateset(modes::Int, gateset::Vector, ctrl_set::Vector)
 	# gate constructor for gates on ALL qubits
 	gates = []
@@ -25,7 +24,12 @@ function gateset_name(modes::Int, gateset::Vector, ctrl_set::Vector)
 	gates_name = []
 	for g in gateset
 		for bit in 1:modes
-			push!(gates_name,string(g)*"_"*string(bit))
+			if isa(g,ShiftGate)
+				gs = g.theta == π/2 ? "S" : "Sdag"
+			else
+				gs = string(g)
+			end
+			push!(gates_name,gs*"_"*string(bit))
 		end
 	end
 	# add all controlled gates
@@ -41,7 +45,7 @@ function gateset_name(modes::Int, gateset::Vector, ctrl_set::Vector)
 	return gates_name
 end
 
-function randomCircuit(MODE::Int,GATESET::Vector,depth=3)
+function randomCircuit(MODE::Int,GATESET::Vector,depth=TARGET_DEPTH)
 	""" Generate a random circuit """
 	l = length(GATESET)
 	u = chain(MODE)
