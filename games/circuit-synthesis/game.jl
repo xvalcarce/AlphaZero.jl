@@ -95,8 +95,8 @@ function to_mat(v::Vector)
 end
 
 @provide RL.clone(env::World) = World(copy(env.state),copy(env.circuit),env.depth)
-@provide RL.state(env::World) = to_vec(env)
-@provide RL.setstate!(env::World, s::Vector) = (env.state = to_mat(s))
+@provide RL.state(env::World) = env.state
+@provide RL.setstate!(env::World, s::Matrix{ComplexF64}) = (env.state = s)
 @provide RL.valid_action_mask(env::World) = BitVector([1 for i in 1:length(GATESET)])
 @provide RL.player(env::World) = 1
 @provide RL.players(env::World) = [1]
@@ -111,7 +111,11 @@ function GI.render(env::World)
 end
 
 function GI.vectorize_state(env::World, state)
-	return to_vec(env)
+	return Float32[
+		f(state[i,j])
+		for i in 1:DIM,
+			j in 1:DIM,
+			f in [real,imag]]
 end
 
 function GI.action_string(env::World, a)
