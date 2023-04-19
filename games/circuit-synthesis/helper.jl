@@ -42,14 +42,15 @@ function gateset_name(modes::Int, gateset::Vector, ctrl_set::Vector)
 			end
 		end
 	end
-	return gates_name
+	return lowercase.(gates_name)
 end
 
-function randomCircuit(MODE::Int,GATESET::Vector,depth=TARGET_DEPTH)
+function randomCircuit(MODE::Int,GATESET::Vector,max_depth=MAX_TARGET_DEPTH)
 	""" Generate a random circuit """
 	l = length(GATESET)
 	u = chain(MODE)
-	for _ in 1:depth
+	circuitLength = rand(1:max_depth)
+	for _ in 1:circuitLength
 		r = rand(1:l)
 		push!(u,GATESET[r])
 	end
