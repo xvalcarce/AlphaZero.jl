@@ -7,10 +7,11 @@ include("./helper.jl")
 const RL = CommonRLInterface
 
 # Game parameters
-const MAX_DEPTH::UInt8 = 20    # Max depth of circuit to explore
-const TARGET_DEPTH = 5         # Number of gate of the target circuit
-const MODE = 2                 # Number of modes
-const DIM = 2MODE              # Size of the matrix representing a circuit
+const MAX_DEPTH = 20    	   # Max depth of circuit to explore (excluding the target)
+const MAX_TARGET_DEPTH = 10    # Max number of gate of the target circuit
+const MODE = 3                 # Number of modes
+const DIM = 2^MODE              # Size of the matrix representing a circuit
+const ELEM = DIM^2              # Number of complex element of a desntiy matrix 
 #const TARGET = chain(MODE, put(1=>X), put(2=>H), control(2, 1=>X)) # Target Circuit
 #const MAT_TARGET = Matrix(mat(TARGET)) # Matrix rep of the target randomCircuit
 const S = shift(π/2)           # Shift gate
@@ -81,12 +82,12 @@ function to_vec(env::World)
 end
 
 function to_mat(v::Vector)
-	@assert length(v) == 2*(DIM^2)
+	@assert length(v) == 2*ELEM
 	m = Matrix{ComplexF64}(undef, DIM, DIM)
 	k = 1
 	@inbounds for i in 1:DIM
 		for j in 1:DIM
-			m[j,i] = v[k]+im*v[16+k]
+			m[j,i] = v[k]+im*v[ELEM+k]
 			k += 1
 		end
 	end
@@ -119,7 +120,7 @@ function GI.action_string(env::World, a)
 end
 
 function GI.parse_action(env::World, s)
-	idx = findfirst(==(s), GATESET)
+	idx = findfirst(==(s), GATESET_NAME)
 	return isnothing(idx) ? nothing : RL.actions(env)[idx]
 end
 
