@@ -1,22 +1,27 @@
+using CUDA
 
-Network = NetLib.SimpleNet                                                    # Kind of NN
+gpu_available = CUDA.functional() 												# Check if GPU is available
 
-netparams = NetLib.SimpleNetHP(
-	width=100,                                                        # Number of neurons per layer
-    depth_common=4,                                          # depth of the NN
-    use_batch_norm=false)                                                       # ??
+Network = NetLib.ResNet 
+
+netparams = NetLib.ResNetHP(
+	num_filters=128,
+	num_blocks=5,
+	conv_kernel_size=(3, 3),
+	num_policy_head_filters=32,
+	num_value_head_filters=32,
+	batch_norm_momentum=0.1)
 
   ## Learning parameters during the neural network gradient descent ##
 
   learning = LearningParams(
-    use_gpu=false,                                                              # Use GPU
-    use_position_averaging=false,                                               # ??
-    samples_weighing_policy=CONSTANT_WEIGHT,                                    # ??
-    rewards_renormalization=10,                                                 # ??
+    use_gpu=gpu_available,                                                              # Use GPU
+    use_position_averaging=true,                                               	# 
+    samples_weighing_policy=LOG_WEIGHT,                                    # ??
     l2_regularization=1e-4,                                                     # L2 regulization
-    optimiser=Adam(lr=5e-3),                                                    # Optimiser for the gradient descent
-    batch_size=2^5,                                                             # Size of the batch
-    loss_computation_batch_size=2^7,                                            # Batch size used to compute the loss between each epochs
+    optimiser=Adam(lr=1e-3),                                                    # Optimiser for the gradient descent
+    batch_size=1024,                                                             # Size of the batch
+    loss_computation_batch_size=1024,                                            # Batch size used to compute the loss between each epochs
     nonvalidity_penalty=1.,                                                     # Multiplicative constant of a loss term that corresponds to the average probability weight that the network puts on invalid actions
     min_checkpoints_per_epoch=1,                                                # ??
     max_batches_per_checkpoint=5_000,                                           # ??
@@ -27,20 +32,20 @@ netparams = NetLib.SimpleNetHP(
 
   # Parameters of the games (simulations) :
   sim_selfplayed = SimParams(
-    num_games=1_000,                                                # Number of games to be played
-    num_workers=2^6,                                                            # ??
-    batch_size=2^5,                                                             # ??
-    use_gpu=false,                                                              # Use gpu or not
-    reset_every=2^4,                                                            # Reset the tree every _ games
+    num_games=4_096,                                                # Number of games to be played
+    num_workers=128,                                                            # Sim task to spawn
+    batch_size=64,                                                              # Batch size of inference request 
+    use_gpu=gpu_available,                                                              # Use gpu or not
+    reset_every=8,                                                            # Reset the tree every _ games
     flip_probability=0.,                                                        # Probability o flipping the borad with symmetric transformation
     alternate_colors=false)                                                     # Not important
 
   # Parameters for the MCTS
   mcts_selfplayed = MctsParams(
-    num_iters_per_turn=1_000,                              # Number of iteration for the MCTS (to get the statistics)
-    cpuct=2.0,                                                        # Exploration parameter in the UTC formula
-	temperature=PLSchedule(1.0),                                            # Temperature
-    dirichlet_noise_ϵ=0.25,                                # Dirchlet noise parameter
+    num_iters_per_turn=500,                               # Number of iteration for the MCTS (to get the statistics)
+    cpuct=2.0,                                            # Exploration parameter in the UTC formula
+	temperature=PLSchedule(1.0),                          # Temperature
+    dirichlet_noise_ϵ=0.25,                               # Amount of dirchlet noise 
     dirichlet_noise_α=1.0)                                # Dirchlet noise parameter
 
   self_play = SelfPlayParams(sim=sim_selfplayed, mcts=mcts_selfplayed)
@@ -49,10 +54,10 @@ netparams = NetLib.SimpleNetHP(
 
   # Simulation parameters
   sim_arena = SimParams(
-    num_games=100,                                          # Number of games
-    num_workers=2^6,                                                            #
-    batch_size=2^5,                                                             #
-    use_gpu=false,                                                              #
+    num_games=128,                                          # Number of games
+    num_workers=128,                                                            #
+    batch_size=64,                                                             #
+    use_gpu=gpu_available,                                                              #
     reset_every=1,                                                              #
     flip_probability=0.,                                                        #
     alternate_colors=true)                                                      #
@@ -75,16 +80,18 @@ netparams = NetLib.SimpleNetHP(
     memory_analysis=nothing,                                                    # Analysis of the memory buffer (cf Doc)
     ternary_rewards=false,                                                      # If reward {-1, 0, 1}
     use_symmetries=false,                                                       # Use symmetries of the board
-    mem_buffer_size=PLSchedule(80_000))                                         # Size schedule of the memory buffer, in terms of number of samples
+	mem_buffer_size=PLSchedule(
+	[      0,        5],
+  	[400_000, 1_000_000]))                                         # Size schedule of the memory buffer, in terms of number of samples
 
 
   ## Benchmark
 
   benchmark_sim = SimParams(
     arena.sim;
-    num_games=100,
-    num_workers=10,
-    batch_size=10)
+    num_games=128,
+    num_workers=64,
+    batch_size=64)
 
   benchmark = [
     Benchmark.Single(
