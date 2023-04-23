@@ -41,15 +41,48 @@ function gateset_name(modes::Int, gateset::Vector, ctrl_set::Vector)
 end
 
 #TODO: redudancy check -> return mask for red/non-red gates
+function isRedundant(c::ChainBlock,gate,cutOff=Inf)
+	gate = gate(c.n)
+	if isa(gate,ControlBlock)
+		mode = [gate.ctrl_locs[1], gate.locs[1]]
+	else
+		mode = [gate.locs[1]]
+	end	
+	depth = 0
+	for g in reverse(c.blocks)
+		if depth == cutOff
+			return false
+		end
+		if isa(g,ControlBlock)
+			if any(mode .∈ Ref([g.ctrl_locs[1], g.locs[1]]))
+				r = g == gate ? true : false
+				return r
+			end
+		else
+			if g.locs[1] ∈ mode 
+				r = g == gate' ? true : false
+				return r
+			end
+		end
+		depth += 1
+	end
+	return false
+end
 
 function randomCircuit(MODE::Int,GATESET::Vector,max_depth=MAX_TARGET_DEPTH)
 	""" Generate a random circuit """
 	l = length(GATESET)
 	u = chain(MODE)
 	circuitLength = rand(1:max_depth)
-	for _ in 1:circuitLength
+	k = 0
+	while k < circuitLength
 		r = rand(1:l)
-		push!(u,GATESET[r])
+		if isRedundant(u,GATESET[r])
+			continue
+		else
+			push!(u,GATESET[r])
+			k += 1
+		end
 	end
 	return u
 end

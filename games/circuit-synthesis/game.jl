@@ -9,20 +9,20 @@ const RL = CommonRLInterface
 # Game parameters
 const MAX_DEPTH = 20    	   # Max depth of circuit to explore (excluding the target)
 const MAX_TARGET_DEPTH = 10    # Max number of gate of the target circuit
-const MODE = 3                 # Number of modes
+const MODE = 2                 # Number of modes
 const DIM = 2^MODE              # Size of the matrix representing a circuit
 const ELEM = DIM^2              # Number of complex element of a desntiy matrix 
-#const TARGET = chain(MODE, put(1=>X), put(2=>H), control(2, 1=>X)) # Target Circuit
-#const MAT_TARGET = Matrix(mat(TARGET)) # Matrix rep of the target randomCircuit
-#
+
+# Gateset considered
 @const_gate S = Diagonal{ComplexF64}([1,1im])
 @const_gate Sdag = Diagonal{ComplexF64}([1,-1im])
 Base.adjoint(::SGate) = Sdag
+Base.adjoint(::SdagGate) = S
 const HERM_GATE = [H]
 const GATE = [H, T, T', S, S'] # Possible Gates 
 const CONTROL = [X]            # Possible Control Gates
-
 const GATESET = gateset(MODE, GATE, CONTROL)
+const L_GATESET = length(GATESET)
 const GATESET_NAME = gateset_name(MODE, GATE, CONTROL)
 
 # Define the environement
@@ -39,18 +39,23 @@ function World()
 	return World(Matrix(mat(t)),t,0)
 end
 
+# Fidelity (used as a reward)
 fidelity(u::AbstractMatrix) = round(abs(tr(u)) / DIM, digits=6)
 fidelity(env::World) = fidelity(env.state)
 
 ## Default methods of CommonRLInterface
 # Here are the methods for CommonRLInterface, other methods are needed for AlphaZero
 
-RL.actions(env::World) = UInt8(1):UInt8(length(GATESET))
+RL.actions(env::World) = UInt8(1):UInt8(L_GATESET)
 RL.observe(env::World) = env.state
 RL.terminated(env::World) = fidelity(env) == 1.0 || env.depth > MAX_DEPTH
 
 function RL.valid_action_mask(env::World)
-	return BitVector([1 for i in 1:length(GATESET)])
+	u = BitVector(undef, L_GATESET)
+	@inbounds for i in 1:L_GATESET
+		u[i] = isRedundant(env.circuit,GATESET[i],env.depth)
+	end
+	return u
 end
 
 # Interaction function
