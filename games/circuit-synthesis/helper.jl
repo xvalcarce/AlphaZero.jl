@@ -24,12 +24,7 @@ function gateset_name(modes::Int, gateset::Vector, ctrl_set::Vector)
 	gates_name = []
 	for g in gateset
 		for bit in 1:modes
-			if isa(g,ShiftGate)
-				gs = g.theta == π/2 ? "S" : "Sdag"
-			else
-				gs = string(g)
-			end
-			push!(gates_name,gs*"_"*string(bit))
+			push!(gates_name,string(g)*"_"*string(bit))
 		end
 	end
 	# add all controlled gates
@@ -37,13 +32,15 @@ function gateset_name(modes::Int, gateset::Vector, ctrl_set::Vector)
 		for t in 1:modes
 			for c in 1:modes
 				if t != c
-					push!(gates_name,"($(string(c)))_"*string(g)*"_"*string(t))
+					push!(gates_name,"($(string(c)))_$(string(g))_$(string(t))")
 				end
 			end
 		end
 	end
 	return lowercase.(gates_name)
 end
+
+#TODO: redudancy check -> return mask for red/non-red gates
 
 function randomCircuit(MODE::Int,GATESET::Vector,max_depth=MAX_TARGET_DEPTH)
 	""" Generate a random circuit """

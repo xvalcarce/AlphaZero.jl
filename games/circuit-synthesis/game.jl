@@ -14,7 +14,11 @@ const DIM = 2^MODE              # Size of the matrix representing a circuit
 const ELEM = DIM^2              # Number of complex element of a desntiy matrix 
 #const TARGET = chain(MODE, put(1=>X), put(2=>H), control(2, 1=>X)) # Target Circuit
 #const MAT_TARGET = Matrix(mat(TARGET)) # Matrix rep of the target randomCircuit
-const S = shift(π/2)           # Shift gate
+#
+@const_gate S = Diagonal{ComplexF64}([1,1im])
+@const_gate Sdag = Diagonal{ComplexF64}([1,-1im])
+Base.adjoint(::SGate) = Sdag
+const HERM_GATE = [H]
 const GATE = [H, T, T', S, S'] # Possible Gates 
 const CONTROL = [X]            # Possible Control Gates
 
@@ -44,6 +48,10 @@ fidelity(env::World) = fidelity(env.state)
 RL.actions(env::World) = UInt8(1):UInt8(length(GATESET))
 RL.observe(env::World) = env.state
 RL.terminated(env::World) = fidelity(env) == 1.0 || env.depth > MAX_DEPTH
+
+function RL.valid_action_mask(env::World)
+	return BitVector([1 for i in 1:length(GATESET)])
+end
 
 # Interaction function
 function RL.act!(env::World, action)
@@ -97,7 +105,6 @@ end
 @provide RL.clone(env::World) = World(copy(env.state),copy(env.circuit),env.depth)
 @provide RL.state(env::World) = env.state
 @provide RL.setstate!(env::World, s::Matrix{ComplexF64}) = (env.state = s)
-@provide RL.valid_action_mask(env::World) = BitVector([1 for i in 1:length(GATESET)])
 @provide RL.player(env::World) = 1
 @provide RL.players(env::World) = [1]
 
