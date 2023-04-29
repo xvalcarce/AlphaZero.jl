@@ -41,18 +41,14 @@ function gateset_name(modes::Int, gateset::Vector, ctrl_set::Vector)
 end
 
 #TODO: redudancy check -> return mask for red/non-red gates
-function isRedundant(c::ChainBlock,gate,cutOff=Inf)
-	gate = gate(c.n)
+function isRedundant(c::ChainBlock,gate)
+	gate = gate(c.n) # Slow...
 	if isa(gate,ControlBlock)
 		mode = [gate.ctrl_locs[1], gate.locs[1]]
 	else
 		mode = [gate.locs[1]]
 	end	
-	depth = 0
 	for g in reverse(c.blocks)
-		if depth == cutOff
-			return false
-		end
 		if isa(g,ControlBlock)
 			if any(mode .∈ Ref([g.ctrl_locs[1], g.locs[1]]))
 				r = g == gate ? true : false
@@ -64,7 +60,6 @@ function isRedundant(c::ChainBlock,gate,cutOff=Inf)
 				return r
 			end
 		end
-		depth += 1
 	end
 	return false
 end
