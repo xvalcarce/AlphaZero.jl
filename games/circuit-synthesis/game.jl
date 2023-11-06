@@ -85,7 +85,7 @@ function RL.reset!(env::World)
 	return nothing
 end
 
-@provide RL.clone(env::World) = World(env.circuit,env.target,env.adj_m_target)
+@provide RL.clone(env::World) = World(copy(env.circuit),copy(env.target),copy(env.adj_m_target))
 @provide RL.state(env::World) = copy(env.circuit.c)
 @provide RL.setstate!(env::World, c::Vector{UInt8}) = (env.circuit = QCir(copy(c)))
 @provide RL.player(::World) = 1

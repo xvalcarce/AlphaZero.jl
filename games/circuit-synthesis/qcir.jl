@@ -30,6 +30,11 @@ function Base.print(qc::QCir)
 	end
 end
 
+function Base.copy(qc::QCir)
+	c = copy(qc.c)
+	return QCir(c)
+end
+
 Yao.mat(qc::QCir) = qc.m
 
 function Yao.chain(qc::QCir)
