@@ -1,9 +1,16 @@
+import LinearAlgebra: det
+using SparseArrays
+
 function gateset(modes::Int, gateset::Vector, ctrl_set::Vector)
 	# gate constructor for gates on ALL qubits
 	gates = []
+	gates_name = []
+	gates_ref = []
 	for g in gateset
 		for bit in 1:modes
 			push!(gates, put(bit=>g))
+			push!(gates_name,string(g)*"_"*string(bit))
+			push!(gates_ref,[false,g,[bit]])
 		end
 	end
 	# add all controlled gates
@@ -12,72 +19,29 @@ function gateset(modes::Int, gateset::Vector, ctrl_set::Vector)
 			for c in 1:modes
 				if t != c
 					push!(gates, control(c, t=>g))
-				end
-			end
-		end
-	end
-	return gates
-end
-
-function gateset_name(modes::Int, gateset::Vector, ctrl_set::Vector)
-	# gate constructor for gates on ALL qubits
-	gates_name = []
-	for g in gateset
-		for bit in 1:modes
-			push!(gates_name,string(g)*"_"*string(bit))
-		end
-	end
-	# add all controlled gates
-	for g in ctrl_set
-		for t in 1:modes
-			for c in 1:modes
-				if t != c
 					push!(gates_name,"($(string(c)))_$(string(g))_$(string(t))")
+					push!(gates_ref,[true,g,[c,t]])
 				end
 			end
 		end
 	end
-	return lowercase.(gates_name)
+	return gates, lowercase.(gates_name), gates_ref
 end
 
-#TODO: redudancy check -> return mask for red/non-red gates
-function isRedundant(c::ChainBlock,gate)
-	gate = gate(c.n) # Slow...
-	if isa(gate,ControlBlock)
-		mode = [gate.ctrl_locs[1], gate.locs[1]]
-	else
-		mode = [gate.locs[1]]
-	end	
-	for g in reverse(c.blocks)
-		if isa(g,ControlBlock)
-			if any(mode .∈ Ref([g.ctrl_locs[1], g.locs[1]]))
-				r = g == gate ? true : false
-				return r
-			end
-		else
-			if g.locs[1] ∈ mode 
-				r = g == gate' ? true : false
-				return r
-			end
-		end
-	end
-	return false
+function mapCanonical(u::SparseMatrixCSC)
+	N = u.n
+	su_mat = u/(det(u)^(1/N)) #Convert Matrix to su(n)
+	nz = su_mat.nzval[1] #take first nonzero
+	hs = [hash(round(exp(-im*2*π*i/N)*nz,digits=12)) for i in 1:N] #hacky af but works : hash all 8 possible repr of nz
+	su_uniq = round.(exp(-im*2*π*argmin(hs)/N)*su_mat, digits=14) #round is super helpful, helps for hashing
+	return su_uniq
 end
 
-function randomCircuit(MODE::Int,GATESET::Vector,max_depth=MAX_TARGET_DEPTH)
-	""" Generate a random circuit """
-	l = length(GATESET)
-	u = chain(MODE)
-	circuitLength = rand(1:max_depth)
-	k = 0
-	while k < circuitLength
-		r = rand(1:l)
-		if isRedundant(u,GATESET[r])
-			continue
-		else
-			push!(u,GATESET[r])
-			k += 1
-		end
-	end
-	return u
+function mapCanonical(u::Diagonal)
+	N = size(u)[1]
+	su_mat = u/(det(u)^(1/N)) #Convert Matrix to su(n)
+	nz = u.diag[findfirst(x-> x!=0.0,u.diag)] #take first nonzero
+	hs = [hash(round(exp(-im*2*π*i/N)*nz,digits=12)) for i in 1:N] #hacky af but works : hash all 8 possible repr of nz
+	su_uniq = round.(exp(-im*2*π*argmin(hs)/N)*su_mat, digits=14) #round is super helpful, helps for hashing
+	return su_uniq
 end
