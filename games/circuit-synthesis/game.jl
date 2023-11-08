@@ -94,13 +94,7 @@ end
 # Vectorize repr of a state, fed to the NN
 function GI.vectorize_state(env::World, state::Vector{UInt8})
 	m = mapCanonical(env.adj_m_target*QCir(state).m)
-	vs = Vector{Float32}()
-	for i in 1:DIM
-		for j in i:DIM
-			push!(vs,real(m[i,j]))
-			push!(vs,imag(m[i,j]))
-		end
-	end
+	vs = Float32[f(m[i,j]) for i in 1:DIM, j in 1:DIM, f in [real,imag]]
 	return vs
 end
 
