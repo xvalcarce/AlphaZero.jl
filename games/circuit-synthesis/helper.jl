@@ -31,16 +31,16 @@ end
 function mapCanonical(u::SparseMatrixCSC)
 	N = u.n
 	su_mat = u/(det(u)^(1/N)) #Convert Matrix to su(n)
-	nz = su_mat.nzval[1] #take first nonzero
+	nz = round(su_mat.nzval[1], digits=12) #take first nonzero
 	hs = [hash(round(exp(-im*2*π*i/N)*nz,digits=12)) for i in 1:N] #hacky af but works : hash all 8 possible repr of nz
-	su_uniq = round.(exp(-im*2*π*argmin(hs)/N)*su_mat, digits=14) #round is super helpful, helps for hashing
+	su_uniq = round.(exp(-im*2*π*argmin(hs)/N)*su_mat, digits=12) #round is super helpful, helps for hashing
 	return su_uniq
 end
 
 function mapCanonical(u::Diagonal)
 	N = size(u)[1]
 	su_mat = u/(det(u)^(1/N)) #Convert Matrix to su(n)
-	nz = u.diag[findfirst(x-> x!=0.0,u.diag)] #take first nonzero
+	nz = round(u.diag[findfirst(x-> x!=0.0,u.diag)], digits=12) #take first nonzero
 	hs = [hash(round(exp(-im*2*π*i/N)*nz,digits=12)) for i in 1:N] #hacky af but works : hash all 8 possible repr of nz
 	su_uniq = round.(exp(-im*2*π*argmin(hs)/N)*su_mat, digits=14) #round is super helpful, helps for hashing
 	return su_uniq
