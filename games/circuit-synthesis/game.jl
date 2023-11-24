@@ -1,9 +1,8 @@
-using CommonRLInterface
 using Yao 
 using StaticArrays
 using LinearAlgebra
 
-const RL = CommonRLInterface
+import AlphaZero.GI
 
 # Game parameters
 const MAX_DEPTH = 20    	   # Max depth of circuit to explore (excluding the target)
@@ -29,98 +28,123 @@ const HASH_ID =  hash(mapCanonical(SparseMatrixCSC{ComplexF64}(I,DIM,DIM))) # Ha
 #Define QCir and some helper function
 include("./qcir.jl")
 
+# GameSpec 
+struct GameSpec <: GI.AbstractGameSpec end
+
 # Define the environement
-mutable struct World <: AbstractEnv
+mutable struct GameEnv <: GI.AbstractGameEnv
 	circuit::QCir # Current circuit
 	target::QCir # Target circuit
 	adj_m_target::SparseMatrixCSC # Adjoint of mat target for speedup
+	reward::Bool
 end
 
-# Constructor
-function World()
+GI.spec(::GameEnv) = GameSpec()
+
+# Single player game
+GI.two_players(::GameSpec) = false
+GI.white_playing(::GameEnv) = true
+
+# Init with random target circuit and empty cir
+function GI.init(::GameSpec)
 	c = QCir()
 	t = randQCir()
 	atm = adjoint(t.m)
-	return World(c,t,atm)
+	return GameEnv(c,t,atm,false)
 end
 
-# Reward functions
-reward(u::QCir,t::SparseMatrixCSC) = HASH_ID == hash(mapCanonical(t*u.m))
-reward(env::World) = reward(env.circuit,env.adj_m_target)
+# Current state is target + circuit (target is needed for vectorize_state)
+GI.current_state(game::GameEnv) = (target=game.target.c, circuit=game.circuit.c)
 
-## Default methods of CommonRLInterface
-# Here are the methods for CommonRLInterface, other methods are needed for AlphaZero
-RL.actions(::World) = UInt8(1):UInt8(L_GATESET)
-RL.observe(env::World) = mapCanonical(env.adj_m_target*env.circuit.m)
-RL.terminated(env::World) = reward(env) || length(env.circuit.c) > MAX_DEPTH
+# Set the state according to nametupled, target shouldn't change tho (otherwise time overhead)
+function GI.set_state!(game::GameEnv, state)
+	game.circuit = QCir(state.circuit)
+	if game.target.c != state.target
+		@info "Diff target"
+		game.target = QCir(state.target)
+		game.adj_m_target = adjoint(game.target.m)
+	end
+	return 
+end
 
-function RL.valid_action_mask(env::World)
+# Action space
+GI.actions(::GameSpec) = UInt8(1):UInt8(L_GATESET)
+
+# Mask for valid actions
+function GI.actions_mask(game::GameEnv)
 	u = BitVector(undef, L_GATESET)
 	@inbounds for i in 1:L_GATESET
-		u[i] = !isRedundant(env.circuit,UInt8(i))
+		u[i] = !isRedundant(game.circuit,UInt8(i))
 	end
 	return u
 end
 
-# Interaction function
-function RL.act!(env::World, action)
-	# update the circuit
-	env.circuit = env.circuit(action)
-	# compute reward
-	if reward(env)
-		return +1
-	else
-		return 0
-	end
+# Clone a game env
+function GI.clone(game::GameEnv)
+	circuit = copy(game.circuit)
+	target = copy(game.target)
+	return GameEnv(circuit, target, adjoint(target.m), game.reward)
 end
 
-# Reset the game
-function RL.reset!(env::World)
-	# Reset circuit to an empty one
-	env.circuit = QCir()
-	# Generate new target
-	t = randQCir()
-	env.target = t
-	env.adj_m_target = adjoint(t.m)
-	return nothing
+# Reward
+reward(u::QCir,t::SparseMatrixCSC) = HASH_ID == hash(mapCanonical(t*u.m))
+GI.white_reward(game::GameEnv) = game.reward ? 1 : 0
+
+# Action effect
+function GI.play!(game::GameEnv, action)
+	game.circuit = game.circuit(action)
+	game.reward = reward(game.circuit,game.adj_m_target)
+	return
 end
 
-@provide RL.clone(env::World) = World(copy(env.circuit),copy(env.target),copy(env.adj_m_target))
-@provide RL.state(env::World) = copy(env.circuit.c)
-@provide RL.setstate!(env::World, c::Vector{UInt8}) = (env.circuit = QCir(copy(c)))
-@provide RL.player(::World) = 1
-@provide RL.players(::World) = [1]
+# Termination conditions
+GI.game_terminated(game::GameEnv) = game.reward || length(game.circuit.c) ≥ MAX_DEPTH
 
 # Vectorize repr of a state, fed to the NN
-function GI.vectorize_state(env::World, state::Vector{UInt8})
-	m = mapCanonical(env.adj_m_target*QCir(state).m)
+function GI.vectorize_state(::GameSpec, state)
+	c = QCir(state.circuit).m
+	t = adjoint(QCir(state.target).m)
+	m = mapCanonical(t*c)
 	vs = Float32[f(m[i,j]) for i in 1:DIM, j in 1:DIM, f in [real,imag]]
 	return vs
+end
+
+# Read state from stdin
+function GI.read_state(::GameSpec)
+	try
+		state = []
+		for i in 1:2
+			input = readline()
+			input = split(input," ")
+			c = map(x -> parse(UInt8,x), input)
+			push!(state,c)
+		end
+		return (target=state[1],circuit=state[2])
+	catch e
+		return nothing
+	end
 end
 
 ## Additional methods
 # Non mandatory methods that can be useful for the game representation
 
 # For minmax player
-GI.heuristic_value(::World) = 0.
+GI.heuristic_value(::GameEnv) = 0.
 
-function GI.render(env::World)
+function GI.render(game::GameEnv)
 	println("TARGET: ")
-	print(env.target)
+	print(game.target)
 	println()
 	println("CIRCUIT: ")
-	print(env.circuit)
+	print(game.circuit)
 end
 
-function GI.action_string(env::World, a)
-	idx = findfirst(==(a), RL.actions(env))
+function GI.action_string(gs::GameSpec, a)
+	idx = findfirst(==(a), GI.actions(gs))
 	return isnothing(idx) ? "?" : GATESET_NAME[idx]
 end
 
-function GI.parse_action(env::World, s)
+function GI.parse_action(gs::GameSpec, s)
 	idx = findfirst(==(s), GATESET_NAME)
-	return isnothing(idx) ? nothing : RL.actions(env)[idx]
+	return isnothing(idx) ? nothing : GI.actions(gs)[idx]
 end
-
-# Generate GameSpec using RL wrapper
-GameSpec() = CommonRLInterfaceWrapper.Spec(World())
