@@ -45,6 +45,10 @@ GI.spec(::GameEnv) = GameSpec()
 GI.two_players(::GameSpec) = false
 GI.white_playing(::GameEnv) = true
 
+# Reward
+reward(u::QCir,t::SparseMatrixCSC) = HASH_ID == hash(mapCanonical(t*u.m))
+GI.white_reward(game::GameEnv) = game.reward ? 1 : 0
+
 # Init with random target circuit and empty cir
 function GI.init(::GameSpec)
 	c = QCir()
@@ -53,14 +57,22 @@ function GI.init(::GameSpec)
 	return GameEnv(c,t,atm,false)
 end
 
+function GI.init(::GameSpec, state)
+	c = QCir(copy(state.circuit))
+	t = QCir(copy(state.target))
+	atm = sparse(adjoint(t.m))
+	r = reward(c,atm)
+	return GameEnv(c,t,atm,r)
+end
+
 # Current state is target + circuit (target is needed for vectorize_state)
-GI.current_state(game::GameEnv) = (target=game.target.c, circuit=game.circuit.c)
+GI.current_state(game::GameEnv) = (target=game.target.c, circuit=copy(game.circuit.c))
 
 # Set the state according to nametupled, target shouldn't change tho (otherwise time overhead)
 function GI.set_state!(game::GameEnv, state)
 	game.circuit = QCir(state.circuit)
 	if game.target.c != state.target
-		@info "Diff target"
+		@debug "Diff target" game.target.c state.target
 		game.target = QCir(state.target)
 		game.adj_m_target = adjoint(game.target.m)
 	end
@@ -85,10 +97,6 @@ function GI.clone(game::GameEnv)
 	target = copy(game.target)
 	return GameEnv(circuit, target, adjoint(target.m), game.reward)
 end
-
-# Reward
-reward(u::QCir,t::SparseMatrixCSC) = HASH_ID == hash(mapCanonical(t*u.m))
-GI.white_reward(game::GameEnv) = game.reward ? 1 : 0
 
 # Action effect
 function GI.play!(game::GameEnv, action)
