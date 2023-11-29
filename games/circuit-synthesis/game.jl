@@ -17,12 +17,21 @@ include("./helper.jl")
 @const_gate Sdag = Diagonal{ComplexF64}([1,-1im])
 Base.adjoint(::SGate) = Sdag
 Base.adjoint(::SdagGate) = S
-const HERM_GATE = [H]
-const GATE = [H, T, T', S, S'] # Possible Gates 
-const CONTROL = [X]            # Possible Control Gates
-const GATESET,GATESET_NAME,GATESET_REF = gateset(MODE, GATE, CONTROL) # All gates: Yao repr, name, references
-const M_GATESET = [sparse(mat(g(MODE))) for g in GATESET] # Pre-generating matrix repr of gateset
-const L_GATESET = length(GATESET) # Length of the gateset
+# Target gate set
+const T_HERM_GATE = [H]
+const T_GATE = [H, T, T', S, S'] # Possible Gates 
+const T_CONTROL = [X]            # Possible Control Gates
+const T_GATESET,T_GATESET_NAME,T_GATESET_REF = gateset(MODE, T_GATE, T_CONTROL) # All gates: Yao repr, name, references
+const T_GATESET_M = [sparse(mat(g(MODE))) for g in T_GATESET] # Pre-generating matrix repr of gateset
+const T_GATESET_L = length(T_GATESET) # Length of the gateset
+# Hardware (compiler) gate 
+const H_HERM_GATE = [H]
+const H_GATE = [H, T, T', S, S'] # Possible Gates 
+const H_CONTROL = [X]            # Possible Control Gates
+const H_GATESET,H_GATESET_NAME,H_GATESET_REF = gateset(MODE, H_GATE, H_CONTROL) # All gates: Yao repr, name, references
+const H_GATESET_M = [sparse(mat(g(MODE))) for g in H_GATESET] # Pre-generating matrix repr of gateset
+const H_GATESET_L = length(H_GATESET) # Length of the gateset
+
 const HASH_ID =  hash(mapCanonical(SparseMatrixCSC{ComplexF64}(I,DIM,DIM))) # Hash of "Id" for fidelity (used as a reward)
 
 #Define QCir and some helper function
@@ -33,8 +42,8 @@ struct GameSpec <: GI.AbstractGameSpec end
 
 # Define the environement
 mutable struct GameEnv <: GI.AbstractGameEnv
-	circuit::QCir # Current circuit
-	target::QCir # Target circuit
+	circuit::QCir{Hardware} # Current circuit
+	target::QCir{Target} # Target circuit
 	adj_m_target::SparseMatrixCSC # Adjoint of mat target for speedup
 	reward::Bool
 end
@@ -51,15 +60,16 @@ GI.white_reward(game::GameEnv) = game.reward ? 1 : 0
 
 # Init with random target circuit and empty cir
 function GI.init(::GameSpec)
-	c = QCir()
-	t = randQCir()
+	c = QCir{Hardware}()
+	t = rand(Target)
 	atm = adjoint(t.m)
 	return GameEnv(c,t,atm,false)
 end
 
+# Init from state (target and circuit)
 function GI.init(::GameSpec, state)
-	c = QCir(copy(state.circuit))
-	t = QCir(copy(state.target))
+	c = QCir{Hardware}(copy(state.circuit))
+	t = QCir{Target}(copy(state.target))
 	atm = sparse(adjoint(t.m))
 	r = reward(c,atm)
 	return GameEnv(c,t,atm,r)
@@ -70,22 +80,22 @@ GI.current_state(game::GameEnv) = (target=game.target.c, circuit=copy(game.circu
 
 # Set the state according to nametupled, target shouldn't change tho (otherwise time overhead)
 function GI.set_state!(game::GameEnv, state)
-	game.circuit = QCir(state.circuit)
+	game.circuit = QCir{Hardware}(state.circuit)
 	if game.target.c != state.target
 		@debug "Diff target" game.target.c state.target
-		game.target = QCir(state.target)
+		game.target = QCir{Target}(state.target)
 		game.adj_m_target = adjoint(game.target.m)
 	end
 	return 
 end
 
 # Action space
-GI.actions(::GameSpec) = UInt8(1):UInt8(L_GATESET)
+GI.actions(::GameSpec) = UInt8(1):UInt8(H_GATESET_L)
 
 # Mask for valid actions
 function GI.actions_mask(game::GameEnv)
-	u = BitVector(undef, L_GATESET)
-	@inbounds for i in 1:L_GATESET
+	u = BitVector(undef, H_GATESET_L)
+	@inbounds for i in 1:H_GATESET_L
 		u[i] = !isRedundant(game.circuit,UInt8(i))
 	end
 	return u
@@ -110,8 +120,8 @@ GI.game_terminated(game::GameEnv) = game.reward || length(game.circuit.c) ≥ MA
 
 # Vectorize repr of a state, fed to the NN
 function GI.vectorize_state(::GameSpec, state)
-	c = QCir(state.circuit).m
-	t = adjoint(QCir(state.target).m)
+	c = QCir{Hardware}(state.circuit).m
+	t = adjoint(QCir{Target}(state.target).m)
 	m = mapCanonical(t*c)
 	vs = Float32[f(m[i,j]) for i in 1:DIM, j in 1:DIM, f in [real,imag]]
 	return vs
@@ -149,10 +159,10 @@ end
 
 function GI.action_string(gs::GameSpec, a)
 	idx = findfirst(==(a), GI.actions(gs))
-	return isnothing(idx) ? "?" : GATESET_NAME[idx]
+	return isnothing(idx) ? "?" : H_GATESET_NAME[idx]
 end
 
 function GI.parse_action(gs::GameSpec, s)
-	idx = findfirst(==(s), GATESET_NAME)
+	idx = findfirst(==(s), H_GATESET_NAME)
 	return isnothing(idx) ? nothing : GI.actions(gs)[idx]
 end

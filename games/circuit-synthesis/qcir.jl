@@ -2,56 +2,66 @@ import LinearAlgebra: I
 using SparseArrays
 using Yao
 
-mutable struct QCir 
+abstract type Architecture end
+
+struct Target <: Architecture end
+struct Hardware <: Architecture end
+
+# Coresponding matrices 
+gateset_m(::Type{Target}) = T_GATESET_M
+gateset_m(::Type{Hardware}) = H_GATESET_M
+
+# Coresponding gate set references
+gateset_r(::Type{Target}) = T_GATESET_REF
+gateset_r(::Type{Hardware}) = H_GATESET_REF
+
+# Coresponding length of gateset 
+gateset_l(::Type{Target}) = T_GATESET_L
+gateset_l(::Type{Hardware}) = H_GATESET_L
+
+mutable struct QCir{T<:Architecture}
 	c::Vector{UInt8}
 	m::SparseMatrixCSC
-	function QCir(c::Vector{UInt8}; M_GATESET=M_GATESET, DIM=DIM)
+	function QCir{T}(c::Vector{UInt8}; DIM=DIM) where T <: Architecture
 		m = SparseMatrixCSC{ComplexF64}(I,DIM,DIM)
+		matrices = gateset_m(T)
 		for g in c
-			m = m*M_GATESET[g]
+			m = m*matrices[g]
 		end
 		new(c, m)
 	end
 end
 
-QCir() = QCir(Vector{UInt8}())
+QCir{T}() where T <: Architecture = QCir{T}(Vector{UInt8}())
 
-function (qc::QCir)(g::UInt8)
-	@assert 1 ≤ g ≤ L_GATESET
+function (qc::QCir{T})(g::UInt8) where T <: Architecture
+	matrices = gateset_m(T)
+	@assert 1 ≤ g ≤ length(matrices)
 	push!(qc.c,g)
-	qc.m = qc.m*M_GATESET[g]
+	qc.m = qc.m*matrices[g]
 	return qc
 end
 
-function Base.print(qc::QCir)
+function Base.print(qc::QCir{T}) where T <: Architecture
+	g_ref = gateset_r(T) 
 	for e in qc.c
-		g = GATESET_REF[e]
+		g = g_ref[e]
 		println("$(g[2]) → $(g[3])")
 	end
 end
 
-function Base.copy(qc::QCir)
+function Base.copy(qc::QCir{T}) where T <: Architecture
 	c = copy(qc.c)
-	return QCir(c)
-end
-
-Yao.mat(qc::QCir) = qc.m
-
-function Yao.chain(qc::QCir)
-	c = chain(MODE)
-	for e in qc.c
-		push!(c, GATESET[e])
-	end
-	return c
+	return QCir{T}(c)
 end
 
 mapCanonical(qc::QCir) = mapCanonical(qc.m)
 
-function isRedundant(c::Vector{UInt8},gate::UInt8;gates_ref=GATESET_REF)
-	gate = gates_ref[gate] 
+function isRedundant(c::Vector{UInt8},gate::UInt8,gateset_ref::Vector{Any})::Bool
+	gate = gateset_ref[gate] 
 	mode = gate[3]
 	for e in reverse(c)
-		g = gates_ref[e]
+		g = gateset_ref[e]
 		if g[1]
 			if any(mode .∈ Ref(g[3]))
 				r = g == gate ? true : false
@@ -67,19 +77,21 @@ function isRedundant(c::Vector{UInt8},gate::UInt8;gates_ref=GATESET_REF)
 	return false
 end
 
-isRedundant(qc::QCir,gate::UInt8) = isRedundant(qc.c,gate)
+isRedundant(qc::QCir{T},gate::UInt8) where T<:Architecture = isRedundant(qc.c,gate,gateset_r(T))
 
-function randQCir(;L_GATESET=L_GATESET,MAX_TARGET_DEPTH=MAX_TARGET_DEPTH)
-	circuitLength = rand(1:MAX_TARGET_DEPTH)
+function Base.rand(::Type{T},circuitLength::Int) where T<:Architecture
+	l = gateset_l(T); g_ref = gateset_r(T);
 	k = 0; c = Vector{UInt8}();
 	while k < circuitLength
-		g = UInt8(rand(1:L_GATESET))
-		if isRedundant(c,g)
+		g = UInt8(rand(1:l))
+		if isRedundant(c,g,g_ref)
 			continue
 		else
 			push!(c,g)
 			k += 1
 		end
 	end
-	return QCir(c)
+	return QCir{T}(c)
 end
+
+Base.rand(::Type{T}) where T<:Architecture = rand(T,rand(1:MAX_TARGET_DEPTH))
