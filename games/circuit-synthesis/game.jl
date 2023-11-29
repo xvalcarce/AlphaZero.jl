@@ -5,11 +5,13 @@ using LinearAlgebra
 import AlphaZero.GI
 
 # Game parameters
-const MAX_DEPTH = 20    	   # Max depth of circuit to explore (excluding the target)
-const MAX_TARGET_DEPTH = 10    # Max number of gate of the target circuit
+const MAX_DEPTH = 40    	   # Max depth of circuit to explore (excluding the target)
+const MAX_TARGET_DEPTH = 20    # Max number of gate of the target circuit
 const MODE = 2                 # Number of modes
 const DIM = 2^MODE             # Size of the matrix representing a circuit
 const ELEM = DIM^2             # Number of complex element of a desntiy matrix 
+const HALF_TARGET_DEPTH = 10   # See WEIGHT
+const WEIGHT = 0.25             # when rand() > WEIGHT generate a circuit of depth HALF_TARGET_DEPTH:MAX_TARGET_DEPTH, otherwise 1:HALF_TARGET_DEPTH
 
 include("./helper.jl")
 # Gateset considered
@@ -61,7 +63,7 @@ GI.white_reward(game::GameEnv) = game.reward ? 1 : 0
 # Init with random target circuit and empty cir
 function GI.init(::GameSpec)
 	c = QCir{Hardware}()
-	t = rand(Target)
+	t = weightedRand(Target)
 	atm = adjoint(t.m)
 	return GameEnv(c,t,atm,false)
 end

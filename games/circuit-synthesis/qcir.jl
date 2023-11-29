@@ -95,3 +95,12 @@ function Base.rand(::Type{T},circuitLength::Int) where T<:Architecture
 end
 
 Base.rand(::Type{T}) where T<:Architecture = rand(T,rand(1:MAX_TARGET_DEPTH))
+
+function weightedRand(::Type{T}) where T<:Architecture
+	range = rand()
+	if range > WEIGHT
+		return rand(T,rand(HALF_TARGET_DEPTH:MAX_TARGET_DEPTH))
+	else
+		return rand(T,rand(1:HALF_TARGET_DEPTH))
+	end
+end
