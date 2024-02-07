@@ -6,27 +6,20 @@ abstract type Architecture end
 
 struct Target <: Architecture end
 struct Hardware <: Architecture end
+struct Audit <: Architecture end
 
 # Coresponding matrices 
-gateset_m(::Type{Target}) = T_GATESET_M
-gateset_m(::Type{Hardware}) = H_GATESET_M
-
-# Coresponding gate set references
-gateset_r(::Type{Target}) = T_GATESET_REF
-gateset_r(::Type{Hardware}) = H_GATESET_REF
-
-# Coresponding length of gateset 
-gateset_l(::Type{Target}) = T_GATESET_L
-gateset_l(::Type{Hardware}) = H_GATESET_L
+gateset(::Type{Target}) = T_GATESET
+gateset(::Type{Hardware}) = H_GATESET
 
 mutable struct QCir{T<:Architecture}
 	c::Vector{UInt8}
 	m::SparseMatrixCSC
 	function QCir{T}(c::Vector{UInt8}; DIM=DIM) where T <: Architecture
-		m = SparseMatrixCSC{ComplexF64}(I,DIM,DIM)
-		matrices = gateset_m(T)
+		m = MAT_ID
+		gset = gateset(T)
 		for g in c
-			m = m*matrices[g]
+			m = m*gset[g].mat
 		end
 		new(c, m)
 	end
@@ -35,18 +28,17 @@ end
 QCir{T}() where T <: Architecture = QCir{T}(Vector{UInt8}())
 
 function (qc::QCir{T})(g::UInt8) where T <: Architecture
-	matrices = gateset_m(T)
-	@assert 1 ≤ g ≤ length(matrices)
+	gset = gateset(T)
+	@assert 1 ≤ g ≤ length(gset)
 	push!(qc.c,g)
-	qc.m = qc.m*matrices[g]
+	qc.m = qc.m*gset[g].mat
 	return qc
 end
 
 function Base.print(qc::QCir{T}) where T <: Architecture
-	g_ref = gateset_r(T) 
+	gset = gateset(T) 
 	for e in qc.c
-		g = g_ref[e]
-		println("$(g[2]) → $(g[3])")
+		prettyprint(gset[e])
 	end
 end
 
@@ -57,34 +49,35 @@ end
 
 mapCanonical(qc::QCir) = mapCanonical(qc.m)
 
-function isRedundant(c::Vector{UInt8},gate::UInt8,gateset_ref::Vector{Any})::Bool
-	gate = gateset_ref[gate] 
-	mode = gate[3]
-	for e in reverse(c)
-		g = gateset_ref[e]
-		if g[1]
-			if any(mode .∈ Ref(g[3]))
-				r = g == gate ? true : false
-				return r
-			end
-		else
-			if g[3][1] ∈ mode 
-				r = g[2] == gate[2]' ? true : false
-				return r
-			end
-		end
-	end
+function isRedundant(c::Vector{UInt8},gate::UInt8,gset::Vector{Any})::Bool
+	#gate = gset[gate] 
+	#target = gate.target
+	#for e in reverse(c)
+	#	g = gset[e]
+	#	if isa(gate,CtrlGate)
+	#		if any(target .∈ Ref(g[3]))
+	#			r = g == gate ? true : false
+	#			return r
+	#		end
+	#	else
+	#		if g[3][1] ∈ mode 
+	#			r = g[2] == gate[2]' ? true : false
+	#			return r
+	#		end
+	#	end
+	#end
 	return false
 end
 
-isRedundant(qc::QCir{T},gate::UInt8) where T<:Architecture = isRedundant(qc.c,gate,gateset_r(T))
+isRedundant(qc::QCir{T},gate::UInt8) where T<:Architecture = isRedundant(qc.c,gate,gateset(T))
 
 function Base.rand(::Type{T},circuitLength::Int) where T<:Architecture
-	l = gateset_l(T); g_ref = gateset_r(T);
+	gset = gateset(T)
+	l = length(gset);
 	k = 0; c = Vector{UInt8}();
 	while k < circuitLength
 		g = UInt8(rand(1:l))
-		if isRedundant(c,g,g_ref)
+		if isRedundant(c,g,gset)
 			continue
 		else
 			push!(c,g)

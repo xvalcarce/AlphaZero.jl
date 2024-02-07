@@ -4,37 +4,24 @@ using LinearAlgebra
 
 import AlphaZero.GI
 
-# Game parameters
-const MAX_DEPTH = 40    	   # Max depth of circuit to explore (excluding the target)
-const MAX_TARGET_DEPTH = 20    # Max number of gate of the target circuit
-const MODE = 2                 # Number of modes
-const DIM = 2^MODE             # Size of the matrix representing a circuit
-const ELEM = DIM^2             # Number of complex element of a desntiy matrix 
-const HALF_TARGET_DEPTH = 10   # See WEIGHT
-const WEIGHT = 0.25             # when rand() > WEIGHT generate a circuit of depth HALF_TARGET_DEPTH:MAX_TARGET_DEPTH, otherwise 1:HALF_TARGET_DEPTH
-
 include("./helper.jl")
 # Gateset considered
 @const_gate S = Diagonal{ComplexF64}([1,1im])
 @const_gate Sdag = Diagonal{ComplexF64}([1,-1im])
 Base.adjoint(::SGate) = Sdag
 Base.adjoint(::SdagGate) = S
+
+include("./config.jl")
+const DIM = 2^MODE             # Size of the matrix representing a circuit
+const ELEM = DIM^2             # Number of complex element of a desntiy matrix 
 # Target gate set
-const T_HERM_GATE = [H]
-const T_GATE = [H, T, T', S, S'] # Possible Gates 
-const T_CONTROL = [X]            # Possible Control Gates
-const T_GATESET,T_GATESET_NAME,T_GATESET_REF = gateset(MODE, T_GATE, T_CONTROL) # All gates: Yao repr, name, references
-const T_GATESET_M = [sparse(mat(g(MODE))) for g in T_GATESET] # Pre-generating matrix repr of gateset
-const T_GATESET_L = length(T_GATESET) # Length of the gateset
+const T_GATESET = buildGateSet(MODE, target_set)
 # Hardware (compiler) gate 
-const H_HERM_GATE = [H]
-const H_GATE = [H, T, T', S, S'] # Possible Gates 
-const H_CONTROL = [X]            # Possible Control Gates
-const H_GATESET,H_GATESET_NAME,H_GATESET_REF = gateset(MODE, H_GATE, H_CONTROL) # All gates: Yao repr, name, references
-const H_GATESET_M = [sparse(mat(g(MODE))) for g in H_GATESET] # Pre-generating matrix repr of gateset
+const H_GATESET = buildGateSet(MODE, hardware_set)
 const H_GATESET_L = length(H_GATESET) # Length of the gateset
 
-const HASH_ID =  hash(mapCanonical(SparseMatrixCSC{ComplexF64}(I,DIM,DIM))) # Hash of "Id" for fidelity (used as a reward)
+const MAT_ID = SparseMatrixCSC{ComplexF64}(I,DIM,DIM) # SparseMatrix Identity
+const HASH_ID =  hash(mapCanonical(MAT_ID)) # Hash of "Id" for fidelity (used as a reward)
 
 #Define QCir and some helper function
 include("./qcir.jl")
@@ -58,7 +45,7 @@ GI.white_playing(::GameEnv) = true
 
 # Reward
 reward(u::QCir,t::SparseMatrixCSC) = HASH_ID == hash(mapCanonical(t*u.m))
-GI.white_reward(game::GameEnv) = game.reward ? 1 : 0
+GI.white_reward(game::GameEnv) :: Float64 = game.reward ? 1. : 0.
 
 # Init with random target circuit and empty cir
 function GI.init(::GameSpec)
@@ -78,11 +65,11 @@ function GI.init(::GameSpec, state)
 end
 
 # Current state is target + circuit (target is needed for vectorize_state)
-GI.current_state(game::GameEnv) = (target=game.target.c, circuit=copy(game.circuit.c))
+GI.current_state(game::GameEnv) = (target=copy(game.target.c), circuit=copy(game.circuit.c))
 
 # Set the state according to nametupled, target shouldn't change tho (otherwise time overhead)
 function GI.set_state!(game::GameEnv, state)
-	game.circuit = QCir{Hardware}(state.circuit)
+	game.circuit = QCir{Hardware}(copy(state.circuit))
 	if game.target.c != state.target
 		@debug "Diff target" game.target.c state.target
 		game.target = QCir{Target}(state.target)
@@ -161,10 +148,10 @@ end
 
 function GI.action_string(gs::GameSpec, a)
 	idx = findfirst(==(a), GI.actions(gs))
-	return isnothing(idx) ? "?" : H_GATESET_NAME[idx]
+	return isnothing(idx) ? "?" : H_GATESET[idx].name
 end
 
 function GI.parse_action(gs::GameSpec, s)
-	idx = findfirst(==(s), H_GATESET_NAME)
+	idx = findfirst(==(s), [hg.name for hg in H_GATESET])
 	return isnothing(idx) ? nothing : GI.actions(gs)[idx]
 end

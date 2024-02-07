@@ -1,31 +1,75 @@
 import LinearAlgebra: det
 using SparseArrays
 
-function gateset(modes::Int, gateset::Vector, ctrl_set::Vector)
+abstract type AbstractGate end
+
+struct Gate <: AbstractGate
+	g::AbstractBlock
+	name::String
+	target::Int
+	mat::SparseMatrixCSC
+	function Gate(g::AbstractBlock, t::Int)
+		name = string(g)*"_"*string(t)
+		m = sparse(mat(put(t=>g)(MODE)))
+		new(g,name,t,m)
+	end
+end
+
+struct CtrlGate <: AbstractGate
+	g::AbstractBlock
+	name::String
+	target::Int
+	ctrl::Vector{Int}
+	mat::SparseMatrixCSC
+	function CtrlGate(g::AbstractBlock,t::Int,c::Vector{Int})
+		name = "($(string(c)))_$(string(g))_$(string(t))"
+		m = sparse(mat(control(c, t=>g)(MODE)))
+		new(g,name,t,c,m)
+	end
+end
+
+prettyprint(g::Gate) = println("$(g.g) → $(g.target)")
+prettyprint(g::CtrlGate) = println("$(g.g) → $(g.target) ◌ $(g.ctrl)")
+
+function buildGateSet(modes::Int, gs::Dict)
 	# gate constructor for gates on ALL qubits
-	gates = []
-	gates_name = []
-	gates_ref = []
-	for g in gateset
-		for bit in 1:modes
-			push!(gates, put(bit=>g))
-			push!(gates_name,string(g)*"_"*string(bit))
-			push!(gates_ref,[false,g,[bit]])
+	gateset = []
+	for g in gs["single_gate"]
+		for t in 1:modes
+			e = Gate(g,t)
+			push!(gateset,e)
 		end
 	end
+	if modes == 1
+		return gateset
+	end
 	# add all controlled gates
-	for g in ctrl_set
+	for g in gs["ctrl_gate"]
 		for t in 1:modes
 			for c in 1:modes
 				if t != c
-					push!(gates, control(c, t=>g))
-					push!(gates_name,"($(string(c)))_$(string(g))_$(string(t))")
-					push!(gates_ref,[true,g,[c,t]])
+					e = CtrlGate(g,t,[c])
+					push!(gateset,e)
 				end
 			end
 		end
 	end
-	return gates, lowercase.(gates_name), gates_ref
+	if modes == 2
+		return gateset
+	end
+	for g in gs["cctrl_gate"]
+		for t in 1:modes
+			for c1 in 1:modes
+				for c2 in 1:modes
+					if t != c1 && t != c2 && c1 != c2
+						e = CtrlGate(g,t,[c1,c2])
+						push!(gateset,e)
+					end
+				end
+			end
+		end
+	end
+	return gateset
 end
 
 function mapCanonical(u::SparseMatrixCSC)
