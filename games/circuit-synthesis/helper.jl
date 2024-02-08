@@ -1,4 +1,4 @@
-import LinearAlgebra: det
+import LinearAlgebra: det, Diagonal, isdiag
 using SparseArrays
 
 abstract type AbstractGate end
@@ -7,10 +7,13 @@ struct Gate <: AbstractGate
 	g::AbstractBlock
 	name::String
 	target::Int
-	mat::SparseMatrixCSC
+	mat::Union{SparseMatrixCSC,Diagonal}
 	function Gate(g::AbstractBlock, t::Int)
 		name = string(g)*"_"*string(t)
 		m = sparse(mat(put(t=>g)(MODE)))
+		if isdiag(m)
+			m = Diagonal(m.nzval)
+		end
 		new(g,name,t,m)
 	end
 end
@@ -20,10 +23,13 @@ struct CtrlGate <: AbstractGate
 	name::String
 	target::Int
 	ctrl::Vector{Int}
-	mat::SparseMatrixCSC
+	mat::Union{SparseMatrixCSC,Diagonal}
 	function CtrlGate(g::AbstractBlock,t::Int,c::Vector{Int})
 		name = "($(string(c)))_$(string(g))_$(string(t))"
 		m = sparse(mat(control(c, t=>g)(MODE)))
+		if isdiag(m)
+			m = Diagonal(m.nzval)
+		end
 		new(g,name,t,c,m)
 	end
 end
