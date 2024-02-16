@@ -6,7 +6,6 @@ abstract type Architecture end
 
 struct Target <: Architecture end
 struct Hardware <: Architecture end
-struct Audit <: Architecture end
 
 # Coresponding matrices 
 gateset(::Type{Target}) = T_GATESET
@@ -50,23 +49,13 @@ end
 mapCanonical(qc::QCir) = mapCanonical(qc.m)
 
 function isRedundant(c::Vector{UInt8},gate::UInt8,gset::Vector{Any})::Bool
-	#gate = gset[gate] 
-	#target = gate.target
-	#for e in reverse(c)
-	#	g = gset[e]
-	#	if isa(gate,CtrlGate)
-	#		if any(target .∈ Ref(g[3]))
-	#			r = g == gate ? true : false
-	#			return r
-	#		end
-	#	else
-	#		if g[3][1] ∈ mode 
-	#			r = g[2] == gate[2]' ? true : false
-	#			return r
-	#		end
-	#	end
-	#end
-	return false
+	if length(c) == 0
+		return false
+	elseif gate == c[end] #Only check if same gate
+		ishermitian(gset[gate].g) && return true # If hermitian then redundant
+	else	
+		return false
+	end
 end
 
 isRedundant(qc::QCir{T},gate::UInt8) where T<:Architecture = isRedundant(qc.c,gate,gateset(T))
