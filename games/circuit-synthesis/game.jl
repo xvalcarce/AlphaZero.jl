@@ -19,6 +19,8 @@ const T_GATESET = buildGateSet(MODE, target_set)
 # Hardware (compiler) gate 
 const H_GATESET = buildGateSet(MODE, hardware_set)
 const H_GATESET_L = length(H_GATESET) # Length of the gateset
+# check if gateset are the same
+const SAME_GATESET = (hardware_set == target_set)
 
 const MAT_ID = SparseMatrixCSC{ComplexF64}(I,DIM,DIM) # SparseMatrix Identity
 const HASH_ID =  hash(mapCanonical(MAT_ID)) # Hash of "Id" for fidelity (used as a reward)
@@ -83,9 +85,10 @@ GI.actions(::GameSpec) = UInt8(1):UInt8(H_GATESET_L)
 
 # Mask for valid actions
 function GI.actions_mask(game::GameEnv)
-	u = BitVector(undef, H_GATESET_L)
-	@inbounds for i in 1:H_GATESET_L
-		u[i] = !isRedundant(game.circuit,UInt8(i))
+	u = trues(H_GATESET_L)
+	if length(game.circuit.c) != 0
+		a = game.circuit.c[end]
+		@inbounds u[a] = isRedundant(game.circuit.c, a, H_GATESET)
 	end
 	return u
 end
@@ -105,7 +108,7 @@ function GI.play!(game::GameEnv, action)
 end
 
 # Termination conditions
-GI.game_terminated(game::GameEnv) = game.reward || length(game.circuit.c) ≥ MAX_DEPTH
+GI.game_terminated(game::GameEnv) = game.reward || length(game.circuit.c) ≥ MAX_DEPTH || (SAME_GATESET && length(game.circuit.c) ≥ length(game.target.c)) 
 
 # Vectorize repr of a state, fed to the NN
 function GI.vectorize_state(::GameSpec, state)
