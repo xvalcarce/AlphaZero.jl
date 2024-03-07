@@ -86,3 +86,85 @@ function weightedRand(::Type{T}) where T<:Architecture
 		return rand(T,rand(1:HALF_TARGET_DEPTH))
 	end
 end
+
+function toyao(c::QCir{T}) where T<:Architecture
+	gset = gateset(T)
+	yc = chain(MODE)
+	for g in c.c
+		gate = gset[g]
+		if isa(gate, Gate)
+			push!(yc,put(gate.target=>gate.g))
+		elseif isa(gate, CtrlGate)
+			push!(yc,control(gate.ctrl, gate.target=>gate.g))
+		else
+			error("Type of gate unkown")
+		end
+	end
+	return yc
+end
+
+toyao(c::Vector{UInt8}) = toyao(QCir{Hardware}(c))
+
+function latexify(c::ChainBlock)
+	header = "\\Qcircuit @C=1em @R=.7em  {"
+	q = ["" for i in 1:c.n]
+	tail = "}"
+	newcolumn() = map(x -> x*" & ",q)  
+	idc = []
+	for g in c
+		if isa(g, PutBlock)
+			s = string(g.content)
+			if length(s) !== 1
+				s = s[1]*"^\\dag"
+			end
+			idx = g.locs[1]
+			if idx ∈ idc
+				for i in 1:c.n
+					if i ∉ idc
+						q[i] *= "\\qw"
+					end
+				end
+				q = newcolumn()
+				idc = []
+			end
+			q[idx] = q[idx]*"\\gate{"*s*"}"
+			append!(idc,idx)
+		elseif isa(g, ControlBlock)
+			s = string(g.content)
+			if length(s) !== 1
+				s = "\\gate{"*s[1]*"^\\dag}"
+			elseif s == "X"
+				s = "\\targ"
+			else
+				s = "\\gate{"*s[1]*"}"
+			end
+			idx = g.locs[1]
+			cidx = g.ctrl_locs[1]
+			if any(map(x -> x ∈ idc, [idx,cidx]))
+				for i in 1:c.n
+					if i ∉ idc
+						q[i] *= "\\qw"
+					end
+				end
+				q = newcolumn()
+				idc = []
+			end
+			q[idx] *= s
+			q[cidx] *= "\\ctrl{$(idx-cidx)}"
+			append!(idc,idx)
+			append!(idc,cidx)
+		end
+	end
+	for i in 1:c.n
+		if i ∉ idc
+			q[i] *= "\\qw"
+		end
+	end
+	q = newcolumn()
+	q  = map(x -> x*"\\qw", q)
+	q  = map(x -> "\\qw & "*x, q)
+	for i in 1:c.n-1
+		q[i] *= " \\\\"
+	end
+	return join([header,q...,tail],"\n")
+end
