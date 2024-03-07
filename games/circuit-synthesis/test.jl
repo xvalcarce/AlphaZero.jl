@@ -98,9 +98,10 @@ GI.actions(::GameSpecAudit) = UInt8(1):UInt8(H_GATESET_L)
 
 # Mask for valid actions
 function GI.actions_mask(game::GameEnvAudit)
-	u = BitVector(undef, H_GATESET_L)
-	@inbounds for i in 1:H_GATESET_L
-		u[i] = !isRedundant(game.circuit,UInt8(i))
+	u = trues(H_GATESET_L)
+	if length(game.circuit.c) != 0
+		a = game.circuit.c[end]
+		@inbounds u[a] = !isRedundant(game.circuit.c, a, H_GATESET)
 	end
 	return u
 end
@@ -163,10 +164,10 @@ end
 
 function GI.action_string(gs::GameSpecAudit, a)
 	idx = findfirst(==(a), GI.actions(gs))
-	return isnothing(idx) ? "?" : H_GATESET_NAME[idx]
+	return isnothing(idx) ? "?" : H_GATESET[idx].name
 end
 
 function GI.parse_action(gs::GameSpecAudit, s)
-	idx = findfirst(==(s), H_GATESET_NAME)
+	idx = findfirst(==(s), [hg.name for hg in H_GATESET])
 	return isnothing(idx) ? nothing : GI.actions(gs)[idx]
 end

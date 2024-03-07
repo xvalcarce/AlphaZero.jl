@@ -88,7 +88,7 @@ function GI.actions_mask(game::GameEnv)
 	u = trues(H_GATESET_L)
 	if length(game.circuit.c) != 0
 		a = game.circuit.c[end]
-		@inbounds u[a] = isRedundant(game.circuit.c, a, H_GATESET)
+		@inbounds u[a] = !isRedundant(game.circuit.c, a, H_GATESET)
 	end
 	return u
 end
