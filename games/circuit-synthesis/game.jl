@@ -16,9 +16,11 @@ const DIM = 2^MODE             # Size of the matrix representing a circuit
 const ELEM = DIM^2             # Number of complex element of a desntiy matrix 
 # Target gate set
 const T_GATESET = buildGateSet(MODE, target_set)
+const T_REDUNDANCY = buildRedudancyDict(T_GATESET)
 # Hardware (compiler) gate 
 const H_GATESET = buildGateSet(MODE, hardware_set)
 const H_GATESET_L = length(H_GATESET) # Length of the gateset
+const H_REDUNDANCY = buildRedudancyDict(H_GATESET)
 # check if gateset are the same
 const SAME_GATESET = (hardware_set == target_set)
 
@@ -84,11 +86,11 @@ end
 GI.actions(::GameSpec) = UInt8(1):UInt8(H_GATESET_L)
 
 # Mask for valid actions
-function GI.actions_mask(game::GameEnv)
+function GI.actions_mask(game::GameEnv) :: Vector{Bool}
 	u = trues(H_GATESET_L)
-	if length(game.circuit.c) != 0
-		a = game.circuit.c[end]
-		@inbounds u[a] = !isRedundant(game.circuit.c, a, H_GATESET)
+	length(game.circuit.c) == 0 && return u
+	for a in eachindex(u)
+		@inbounds u[a] = !isRedundant(game.circuit.c, UInt8(a), H_REDUNDANCY)
 	end
 	return u
 end

@@ -11,6 +11,10 @@ struct Hardware <: Architecture end
 gateset(::Type{Target}) = T_GATESET
 gateset(::Type{Hardware}) = H_GATESET
 
+# Redundancy dict
+redundancy(::Type{Target}) = T_REDUNDANCY
+redundancy(::Type{Hardware}) = H_REDUNDANCY
+
 mutable struct QCir{T<:Architecture}
 	c::Vector{UInt8}
 	m::SparseMatrixCSC
@@ -48,25 +52,27 @@ end
 
 mapCanonical(qc::QCir) = mapCanonical(qc.m)
 
-function isRedundant(c::Vector{UInt8},gate::UInt8,gset::Vector{Any})::Bool
-	if length(c) == 0
-		return false
-	elseif gate == c[end] #Only check if same gate
-		ishermitian(gset[gate].g) && return true # If hermitian then redundant
-	else	
-		return false
+function isRedundant(c::Vector{UInt8}, g::UInt8, red::Dict) :: Bool
+	lc = length(c)
+	lc == 0 && return false
+	for i in 1:min(3,lc)
+		if haskey(red, c[end-i+1:end]) 
+			red[c[end-i+1:end]] == g && return true
+		end
 	end
+	return false
 end
 
-isRedundant(qc::QCir{T},gate::UInt8) where T<:Architecture = isRedundant(qc.c,gate,gateset(T))
+isRedundant(qc::QCir{T},gate::UInt8) where T<:Architecture = isRedundant(qc.c,gate,redundancy(T))
 
 function Base.rand(::Type{T},circuitLength::Int) where T<:Architecture
 	gset = gateset(T)
+	red = redundancy(T)
 	l = length(gset);
 	k = 0; c = Vector{UInt8}();
 	while k < circuitLength
 		g = UInt8(rand(1:l))
-		if isRedundant(c,g,gset)
+		if isRedundant(c,g,red)
 			continue
 		else
 			push!(c,g)

@@ -78,6 +78,52 @@ function buildGateSet(modes::Int, gs::Dict)
 	return gateset
 end
 
+function buildRedudancyDict(gset)
+	redundant = Dict{Vector{Int}, Int}()
+	# Single gate redundancy
+	for (i,lastGate) in enumerate(gset)
+		for (j,newGate) in enumerate(gset)
+			if lastGate.mat == adjoint(newGate.mat)
+				redundant[[i]] = j
+			end
+		end
+	end
+	# Two gate redundancy insert gate other mode
+	for (l,n) in redundant
+		for (i, g) in enumerate(gset)
+			lg = gset[l[1]]
+			modes = isa(lg,Gate) ? [lg.target] : [lg.target, lg.ctrl]
+			if g!=l && g!=n
+				if isa(g,Gate)
+					if g.target ∉ modes
+						redundant[[l[1],i]] = n
+					end
+				else
+					if (g.target ∉ modes) && (g.ctrl ∉ modes)
+						redundant[[l[1],i]] = n
+					end
+				end
+			end
+		end
+	end
+	# Swap gate
+	for (i,cx1) in enumerate(gset)
+		# Select CNOT
+		if isa(cx1,CtrlGate) && cx1.g == X && length(cx1.ctrl) == 1
+			for (j,cx2) in enumerate(gset) 
+				# Also select CNOT
+				if isa(cx2,CtrlGate) && cx2.g == X && length(cx2.ctrl) == 1
+					# Select reverse CNOT
+					if cx1.target == cx2.ctrl[1] && cx2.target == cx1.ctrl[1]
+						redundant[[i,j,i]] = j 
+					end
+				end
+			end
+		end
+	end
+	return redundant
+end
+
 function mapCanonical(u::SparseMatrixCSC)
 	N = u.n
 	su_mat = u/(det(u)^(1/N)) #Convert Matrix to su(n)
