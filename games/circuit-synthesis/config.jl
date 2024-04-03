@@ -14,3 +14,5 @@ target_set = Dict("single_gate" => [H,Z,X,T,T',S,S'],
 hardware_set = Dict("single_gate" => [H,S,S',T,T'],
 				"ctrl_gate" => [X],
 				"cctrl_gate" => [])
+
+target_set = hardware_set

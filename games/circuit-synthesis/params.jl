@@ -8,8 +8,8 @@ const LEARN = Dict("filters" => 128,
 					 "blocks" => 5,
 					 "policy_filters" => 32,
 					 "value_filters" => 32,
-					 "n_games" => 4_096,
-					 "mcts_n_iter" => 500,
+					 "n_games" => 5_000,
+					 "mcts_n_iter" => 200,
 					 "temperature" => PLSchedule([0,20,30], [1.0,1.0,0.2]),
 					 "batch_size" => 1_024,
 					 "learning_rate" => 1e-3
@@ -67,8 +67,8 @@ self_play = SelfPlayParams(
 
 arena = ArenaParams(
 	sim = SimParams(
-	    num_games = 128,
-    	num_workers = 128,
+	num_games = 256,
+    	num_workers = 256,
     	batch_size = 64, 
     	use_gpu = gpu_available,
     	reset_every = 1,
@@ -78,7 +78,7 @@ arena = ArenaParams(
 		self_play.mcts,
 		temperature = ConstSchedule(0.2),
 		dirichlet_noise_ϵ = 0.05),
-	update_threshold = 0.05)
+	update_threshold = 0.00)
 
 ## Learning parameters : gradient descent, loss params, ...
 
@@ -98,10 +98,10 @@ learning = LearningParams(
 ## Parameters ##
 
 params = Params(
-	arena = arena,                                                                # Arena parameters
+    arena = arena,                                                                # Arena parameters
     self_play = self_play,                                                        # Selfplayed parameters
     learning = learning,                                                          # Learning parameters
-    num_iters = 5,                                                                  # Number of iteration
+    num_iters = 80,                                                                  # Number of iteration
     ternary_rewards = false,                                                      # If reward {-1, 0, 1}
     use_symmetries = false,                                                       # Use symmetries of the board
     memory_analysis = nothing,                                                    # Analysis of the memory buffer (cf Doc)
