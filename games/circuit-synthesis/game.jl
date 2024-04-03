@@ -4,7 +4,6 @@ using LinearAlgebra
 
 import AlphaZero.GI
 
-include("./helper.jl")
 # Gateset considered
 @const_gate S = Diagonal{ComplexF64}([1,1im])
 @const_gate Sdag = Diagonal{ComplexF64}([1,-1im])
@@ -12,6 +11,11 @@ Base.adjoint(::SGate) = Sdag
 Base.adjoint(::SdagGate) = S
 
 include("./config.jl")
+
+#Define QCir and some helper function
+include("./qcir.jl")
+include("./helper.jl")
+
 const DIM = 2^MODE             # Size of the matrix representing a circuit
 const ELEM = DIM^2             # Number of complex element of a desntiy matrix 
 # Target gate set
@@ -26,9 +30,6 @@ const SAME_GATESET = (hardware_set == target_set)
 
 const MAT_ID = SparseMatrixCSC{ComplexF64}(I,DIM,DIM) # SparseMatrix Identity
 const HASH_ID =  hash(mapCanonical(MAT_ID)) # Hash of "Id" for fidelity (used as a reward)
-
-#Define QCir and some helper function
-include("./qcir.jl")
 
 # GameSpec 
 struct GameSpec <: GI.AbstractGameSpec end
@@ -48,7 +49,11 @@ GI.two_players(::GameSpec) = false
 GI.white_playing(::GameEnv) = true
 
 # Reward
-reward(u::QCir,t::SparseMatrixCSC) = HASH_ID == hash(mapCanonical(t*u.m))
+if USE_GP_SYM
+	reward(u::QCir,t::SparseMatrixCSC) = HASH_ID == hash(mapCanonical(t*u.m))
+else
+	reward(u::QCir,t::SparseMatrixCSC) = MAT_ID == mapCanonical(t*u.m)
+end
 GI.white_reward(game::GameEnv) :: Float64 = game.reward ? 1. : 0.
 
 # Init with random target circuit and empty cir

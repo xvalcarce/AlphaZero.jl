@@ -4,6 +4,7 @@ const MAX_TARGET_DEPTH = 20    # Max number of gate of the target circuit
 const MODE = 3                # Number of modes
 const HALF_TARGET_DEPTH = 10   # See WEIGHT
 const WEIGHT = 0.25            # when rand() > WEIGHT generate a circuit of depth HALF_TARGET_DEPTH:MAX_TARGET_DEPTH, otherwise 1:HALF_TARGET_DEPTH
+const USE_GP_SYM = true 	# state defined up to global phase (using SU(N) trick)
 
 # Target gate set from which target circuits for training will be created
 target_set = Dict("single_gate" => [H,Z,X,T,T',S,S'],
