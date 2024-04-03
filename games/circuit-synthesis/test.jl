@@ -39,6 +39,8 @@ prettyprint(g::UnitaryGate) = println("$(g.name)")
 A_DEPTH = 1
 u = UnitaryGate(sparse([1,2,3,8,5,6,7,4],[1,2,3,4,5,6,7,8],[1.,1.,1.,1.,1.,1.,1.,1+0*1im]))
 A_GATESET = Vector{Any}([u]) 
+A_REDUNDANCY = Dict()
+redundancy(::Type{Audit}) = A_REDUNDANCY
 
 # Gateset
 gateset(::Type{Audit}) = A_GATESET
@@ -97,11 +99,11 @@ end
 GI.actions(::GameSpecAudit) = UInt8(1):UInt8(H_GATESET_L)
 
 # Mask for valid actions
-function GI.actions_mask(game::GameEnvAudit)
-	u = trues(H_GATESET_L)
-	if length(game.circuit.c) != 0
-		a = game.circuit.c[end]
-		@inbounds u[a] = !isRedundant(game.circuit.c, a, H_GATESET)
+function GI.actions_mask(game::GameEnvAudit) :: Vector{Bool}
+	u = trues(length(H_GATESET))
+	length(game.circuit.c) == 0 && return u
+	for a in eachindex(u)
+		@inbounds u[a] = !isRedundant(game.circuit.c, UInt8(a), H_REDUNDANCY)
 	end
 	return u
 end
