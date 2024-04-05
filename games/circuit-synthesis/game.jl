@@ -1,20 +1,30 @@
 using Yao 
 using StaticArrays
 using LinearAlgebra
+using Distributions
 
 import AlphaZero.GI
 
-# Gateset considered
+# Extra Yao gate definition
 @const_gate S = Diagonal{ComplexF64}([1,1im])
 @const_gate Sdag = Diagonal{ComplexF64}([1,-1im])
 Base.adjoint(::SGate) = Sdag
 Base.adjoint(::SdagGate) = S
 
+# Import config file with game paramters
 include("./config.jl")
 
-#Define QCir and some helper function
-include("./qcir.jl")
+# Import helper functions
 include("./helper.jl")
+
+# Define depth distribution for random circuit sampling
+# using ref (pointer) so variable can be updated using GI.update_gspec
+const MEAN = Ref(MIN_MEAN_DEPTH)
+tndist(mean::Int) = Truncated(Normal(mean, STD_DEV_DEPTH), MIN_TARGET_DEPTH, MAX_TARGET_DEPTH)
+const DIST = USE_NORMAL_DIST ? Ref(tndist(MEAN[])) : Ref(BiasUniform)
+
+#Define QCir type and useful functions
+include("./qcir.jl")
 
 const DIM = 2^MODE             # Size of the matrix representing a circuit
 const ELEM = DIM^2             # Number of complex element of a desntiy matrix 
@@ -59,7 +69,7 @@ GI.white_reward(game::GameEnv) :: Float64 = game.reward ? 1. : 0.
 # Init with random target circuit and empty cir
 function GI.init(::GameSpec)
 	c = QCir{Hardware}()
-	t = weightedRand(Target)
+	t = rand(DIST[],Target)
 	atm = adjoint(t.m)
 	return GameEnv(c,t,atm,false)
 end
@@ -140,6 +150,18 @@ function GI.read_state(::GameSpec)
 	catch e
 		return nothing
 	end
+end
+
+function GI.update_gspec(::GameSpec,itc::Int)
+	@info ITC_MEAN_INCREMENT
+	@info DIST[]
+	@info MEAN[]
+	if USE_NORMAL_DIST && (itc+1) % ITC_MEAN_INCREMENT == 0 && MEAN[] < MAX_MEAN_DEPTH 
+		MEAN[] = min(MEAN[] + 1, MAX_MEAN_DEPTH)
+		DIST[] = tndist(MEAN[])
+		@info "Normal distribution mean incremented to $(MEAN[])."
+	end
+	return
 end
 
 ## Additional methods

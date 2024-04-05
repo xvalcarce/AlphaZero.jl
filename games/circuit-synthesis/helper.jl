@@ -1,5 +1,7 @@
 import LinearAlgebra: det, Diagonal, isdiag
+import Random: AbstractRNG
 using SparseArrays
+using Distributions
 
 abstract type AbstractGate end
 
@@ -143,7 +145,16 @@ if USE_GP_SYM
 		return su_uniq
 	end
 else
-	function mapCanonical(u::Union{SparseMatrixCSC, Diagonal})
-		cu = round.(u, digits=14)
+	mapCanonical(u::Union{SparseMatrixCSC, Diagonal}) = round.(u, digits=14)
+end
+
+struct BiasUniform <: Sampleable{Univariate,Discrete} end
+
+function Base.rand(s::BiasUniform)
+	range = rand()
+	if range > WEIGHT
+		rand(HALF_TARGET_DEPTH:MAX_TARGET_DEPTH)
+	else
+		rand(MIN_TARGET_DEPTH:HALF_TARGET_DEPTH)
 	end
 end

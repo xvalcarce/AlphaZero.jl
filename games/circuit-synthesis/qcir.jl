@@ -1,4 +1,5 @@
 import LinearAlgebra: I
+using Distributions
 using SparseArrays
 using Yao
 
@@ -82,16 +83,9 @@ function Base.rand(::Type{T},circuitLength::Int) where T<:Architecture
 	return QCir{T}(c)
 end
 
-Base.rand(::Type{T}) where T<:Architecture = rand(T,rand(1:MAX_TARGET_DEPTH))
+Base.rand(::Type{T}) where T<:Architecture = rand(T,rand(MIN_TARGET_DEPTH:MAX_TARGET_DEPTH))
 
-function weightedRand(::Type{T}) where T<:Architecture
-	range = rand()
-	if range > WEIGHT
-		return rand(T,rand(HALF_TARGET_DEPTH:MAX_TARGET_DEPTH))
-	else
-		return rand(T,rand(1:HALF_TARGET_DEPTH))
-	end
-end
+Distributions.rand(d::Sampleable,::Type{T}) where T<:Architecture = rand(T,Int(round(rand(d))))
 
 function toyao(c::QCir{T}) where T<:Architecture
 	gset = gateset(T)

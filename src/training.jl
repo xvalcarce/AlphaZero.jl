@@ -321,6 +321,7 @@ functions defined in [`Handlers`](@ref).
 function train!(env::Env, handler=nothing)
   while env.itc < env.params.num_iters
     Handlers.iteration_started(handler)
+	GI.update_gspec(env.gspec,env.itc)
     resize_memory!(env, env.params.mem_buffer_size[env.itc])
     sprep, spperfs = Report.@timed self_play_step!(env, handler)
     mrep, mperfs = Report.@timed memory_report(env, handler)

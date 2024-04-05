@@ -297,6 +297,13 @@ function init(gspec::AbstractGameSpec, state)
   return env
 end
 
+"""
+	update_gspec(::AbstractGameSpec,::Int)
+
+Update game specifications as a function of the iteration count.
+"""
+function update_gspec end
+
 #####
 ##### Derived env functions
 #####
