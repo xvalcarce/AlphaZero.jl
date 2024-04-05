@@ -21,7 +21,7 @@ include("./helper.jl")
 # using ref (pointer) so variable can be updated using GI.update_gspec
 const MEAN = Ref(MIN_MEAN_DEPTH)
 tndist(mean::Int) = Truncated(Normal(mean, STD_DEV_DEPTH), MIN_TARGET_DEPTH, MAX_TARGET_DEPTH)
-const DIST = USE_NORMAL_DIST ? Ref(tndist(MEAN[])) : Ref(BiasUniform)
+const DIST = USE_NORMAL_DIST ? Ref(tndist(MEAN[])) : Ref(BiasUniform())
 
 #Define QCir type and useful functions
 include("./qcir.jl")
