@@ -3,6 +3,7 @@ module CircuitSynthesis
   using AlphaZero
   include("game.jl")
   include("test.jl")
+  include("benchmark.jl")
   module Training
     using AlphaZero
     import ..GameSpec
