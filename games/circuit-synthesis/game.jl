@@ -153,11 +153,9 @@ function GI.read_state(::GameSpec)
 end
 
 function GI.update_gspec(::GameSpec,itc::Int)
-	@info ITC_MEAN_INCREMENT
 	@info DIST[]
-	@info MEAN[]
-	if USE_NORMAL_DIST && (itc+1) % ITC_MEAN_INCREMENT == 0 && MEAN[] < MAX_MEAN_DEPTH 
-		MEAN[] = min(MEAN[] + 1, MAX_MEAN_DEPTH)
+	if USE_NORMAL_DIST
+		MEAN[] = min(max(MIN_MEAN_DEPTH, (itc + 3) ÷ 2), MAX_MEAN_DEPTH) # TODO : clean up magic number later
 		DIST[] = tndist(MEAN[])
 		@info "Normal distribution mean incremented to $(MEAN[])."
 	end

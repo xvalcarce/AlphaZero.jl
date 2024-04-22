@@ -12,8 +12,8 @@ const USE_NORMAL_DIST = true  # Whether to use a normal distribution for the cir
 const MIN_MEAN_DEPTH = 2     # minimum mean of the normal distribution
 const MAX_MEAN_DEPTH = 40     # maximum mean of the normal distribution 
 const STD_DEV_DEPTH = 5       # standard deviation of the normal distribution
-const ITC_MEAN_INCREMENT = 2  # increase the mean of the normal distribution every n training iterations (set to -1 for fix mean)
-#
+# const ITC_MEAN_INCREMENT = 2  # increase the mean of the normal distribution every n training iterations (set to -1 for fix mean)
+
 # Or a biased uniform distribution
 const HALF_TARGET_DEPTH = 10   # See WEIGHT
 const WEIGHT = 0.25            # when rand() > WEIGHT generate a circuit of depth HALF_TARGET_DEPTH:MAX_TARGET_DEPTH, otherwise MIN_TARGET_DEPTH:HALF_TARGET_DEPTH
