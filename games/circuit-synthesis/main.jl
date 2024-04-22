@@ -6,7 +6,7 @@ module CircuitSynthesis
   include("benchmark.jl")
   module Training
     using AlphaZero
-    import ..GameSpec
+    import ..GameSpec, ..SingleAudit
     include("params.jl")
   end
 end

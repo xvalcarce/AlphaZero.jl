@@ -198,7 +198,7 @@ function run_duel(env::Env, duel; logger)
     baseline_name = Benchmark.name(duel.baseline)
     legend = "$player_name against $baseline_name"
   else
-    @assert isa(duel, Benchmark.Single)
+    # @assert isa(duel, Benchmark.Single)
     legend = Benchmark.name(duel.player)
   end
   Log.section(logger, 2, "Running benchmark: $legend")
