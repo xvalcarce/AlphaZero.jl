@@ -23,7 +23,7 @@ mutable struct QCir{T<:Architecture}
 		m = MAT_ID
 		gset = gateset(T)
 		for g in c
-			m = m*gset[g].mat
+			m = gset[g].mat*m
 		end
 		new(c, m)
 	end
@@ -35,7 +35,7 @@ function (qc::QCir{T})(g::UInt8) where T <: Architecture
 	gset = gateset(T)
 	@assert 1 ≤ g ≤ length(gset)
 	push!(qc.c,g)
-	qc.m = qc.m*gset[g].mat
+	qc.m = gset[g].mat*qc.m
 	return qc
 end
 
