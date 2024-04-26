@@ -85,7 +85,7 @@ function GI.init(::GameSpec)
 	c = QCir{Hardware}()
 	t = rand(DIST[],Target)
 	atm = adjoint(t.m)
-	atm = ANCILLA_ARCH ? √atm[mask_i,mask_j] : atm
+	atm = ANCILLA_ARCH ? atm[mask_i,mask_j] : atm
 	return GameEnv(c,t,atm,false)
 end
 
