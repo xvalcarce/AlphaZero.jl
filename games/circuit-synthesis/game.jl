@@ -26,7 +26,8 @@ const DIST = USE_NORMAL_DIST ? Ref(tndist(MEAN[])) : Ref(BiasUniform())
 #Define QCir type and useful functions
 include("./qcir.jl")
 
-const DIM = 2^MODE             # Size of the matrix representing a circuit
+const DIM = 2^MODE # Size of the matrix representing a circuit
+const DIM_OUT = ANCILLA_ARCH ? DIM÷2 : DIM # Size of the output matrix
 const ELEM = DIM^2             # Number of complex element of a desntiy matrix 
 # Target gate set
 const T_GATESET = buildGateSet(MODE, target_set)
@@ -38,7 +39,16 @@ const H_REDUNDANCY = buildRedudancyDict(H_GATESET)
 # check if gateset are the same
 const SAME_GATESET = (hardware_set == target_set)
 
+# mask -> remove the input/out corresponding to |1> of last qubit
+# mask_i,mask_j = trues(DIM), trues(DIM)
+# mask_i[(DIM÷2)+1:DIM] .= false # kill output (row) |1>
+# mask_j[(DIM÷2)+1:DIM] .= false # kill input (column) |1>
+# Faster implementation
+mask_i = 1:DIM_OUT
+mask_j = 1:DIM_OUT
+
 const MAT_ID = SparseMatrixCSC{ComplexF64}(I,DIM,DIM) # SparseMatrix Identity
+const MAT_ID_OUT = SparseMatrixCSC{ComplexF64}(I,DIM_OUT,DIM_OUT) # SparseMatrix Identity
 const HASH_ID =  hash(mapCanonical(MAT_ID)) # Hash of "Id" for fidelity (used as a reward)
 
 # GameSpec 
@@ -62,7 +72,11 @@ GI.white_playing(::GameEnv) = true
 if USE_GP_SYM
 	reward(u::QCir,t::SparseMatrixCSC) = HASH_ID == hash(mapCanonical(t*u.m))
 else
-	reward(u::QCir,t::SparseMatrixCSC) = MAT_ID == mapCanonical(t*u.m)
+	if ANCILLA_ARCH
+		reward(u::QCir,t::SparseMatrixCSC) = MAT_ID_OUT == mapCanonical(2*t*u.m[mask_i,mask_j]) # 2 from √(2) normalization
+	else
+		reward(u::QCir,t::SparseMatrixCSC) = MAT_ID == mapCanonical(t*u.m)
+	end
 end
 GI.white_reward(game::GameEnv) :: Float64 = game.reward ? 1. : 0.
 
@@ -71,6 +85,7 @@ function GI.init(::GameSpec)
 	c = QCir{Hardware}()
 	t = rand(DIST[],Target)
 	atm = adjoint(t.m)
+	atm = ANCILLA_ARCH ? √atm[mask_i,mask_j] : atm
 	return GameEnv(c,t,atm,false)
 end
 
@@ -79,6 +94,7 @@ function GI.init(::GameSpec, state)
 	c = QCir{Hardware}(copy(state.circuit))
 	t = QCir{Target}(copy(state.target))
 	atm = sparse(adjoint(t.m))
+	atm = ANCILLA_ARCH ? atm[mask_i,mask_j] : atm
 	r = reward(c,atm)
 	return GameEnv(c,t,atm,r)
 end
@@ -92,7 +108,9 @@ function GI.set_state!(game::GameEnv, state)
 	if game.target.c != state.target
 		@debug "Diff target" game.target.c state.target
 		game.target = QCir{Target}(state.target)
-		game.adj_m_target = adjoint(game.target.m)
+		atm = adjoint(game.target.m)
+		atm = ANCILLA_ARCH ? atm[mask_i,mask_j] : atm
+		game.adj_m_target = atm
 	end
 	return 
 end
@@ -114,7 +132,9 @@ end
 function GI.clone(game::GameEnv)
 	circuit = copy(game.circuit)
 	target = copy(game.target)
-	return GameEnv(circuit, target, adjoint(target.m), game.reward)
+	tm = adjoint(target.m)
+	tm = ANCILLA_ARCH ? √(2)tm[mask_i,mask_j] : tm
+	return GameEnv(circuit, target, tm, game.reward)
 end
 
 # Action effect
@@ -131,8 +151,10 @@ GI.game_terminated(game::GameEnv) = game.reward || length(game.circuit.c) ≥ MA
 function GI.vectorize_state(::GameSpec, state)
 	c = QCir{Hardware}(state.circuit).m
 	t = adjoint(QCir{Target}(state.target).m)
-	m = mapCanonical(t*c)
-	vs = Float32[f(m[i,j]) for i in 1:DIM, j in 1:DIM, f in [real,imag]]
+	c = ANCILLA_ARCH ? c[mask_i,mask_j] : c
+	t = ANCILLA_ARCH ? t[mask_i,mask_j] : t
+	m = 2*mapCanonical(t*c)
+	vs = Float32[f(m[i,j]) for i in 1:DIM_OUT, j in 1:DIM_OUT, f in [real,imag]]
 	return vs
 end
 

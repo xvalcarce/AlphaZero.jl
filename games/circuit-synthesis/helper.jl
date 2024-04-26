@@ -39,45 +39,79 @@ end
 prettyprint(g::Gate) = println("$(g.g) → $(g.target)")
 prettyprint(g::CtrlGate) = println("$(g.g) → $(g.target) ◌ $(g.ctrl)")
 
-function buildGateSet(modes::Int, gs::Dict)
-	# gate constructor for gates on ALL qubits
-	gateset = []
-	for g in gs["single_gate"]
-		for t in 1:modes
-			e = Gate(g,t)
-			push!(gateset,e)
-		end
-	end
-	if modes == 1
-		return gateset
-	end
-	# add all controlled gates
-	for g in gs["ctrl_gate"]
-		for t in 1:modes
-			for c in 1:modes
-				if t != c
-					e = CtrlGate(g,t,[c])
-					push!(gateset,e)
-				end
+if !ANCILLA_ARCH
+	function buildGateSet(modes::Int, gs::Dict)
+		# gate constructor for gates on ALL qubits
+		gateset = []
+		for g in gs["single_gate"]
+			for t in 1:modes
+				e = Gate(g,t)
+				push!(gateset,e)
 			end
 		end
-	end
-	if modes == 2
-		return gateset
-	end
-	for g in gs["cctrl_gate"]
-		for t in 1:modes
-			for c1 in 1:modes
-				for c2 in 1:modes
-					if t != c1 && t != c2 && c1 != c2
-						e = CtrlGate(g,t,[c1,c2])
+		if modes == 1
+			return gateset
+		end
+		# add all controlled gates
+		for g in gs["ctrl_gate"]
+			for t in 1:modes
+				for c in 1:modes
+					if t != c
+						e = CtrlGate(g,t,[c])
 						push!(gateset,e)
 					end
 				end
 			end
 		end
+		if modes == 2
+			return gateset
+		end
+		for g in gs["cctrl_gate"]
+			for t in 1:modes
+				for c1 in 1:modes
+					for c2 in 1:modes
+						if t != c1 && t != c2 && c1 != c2
+							e = CtrlGate(g,t,[c1,c2])
+							push!(gateset,e)
+						end
+					end
+				end
+			end
+		end
+		return gateset
 	end
-	return gateset
+else
+	function buildGateSet(modes::Int, gs::Dict)
+		# Specific gateset builder for ancilla architecture
+		# single qubit gates only on last qubit
+		gateset = []
+		for g in gs["single_gate"]
+			e = Gate(g,modes)
+			push!(gateset,e)
+		end
+		# add all controlled gates target is always last qubit
+		for g in gs["ctrl_gate"]
+			for c in 1:modes-1
+				e = CtrlGate(g,modes,[c])
+				push!(gateset,e)
+			end
+		end
+		if modes == 2
+			return gateset
+		end
+		# same for cc gates 
+		for g in gs["cctrl_gate"]
+			for c1 in 1:modes-1
+				for c2 in 1:modes-1
+					if c1 != c2
+						e = CtrlGate(g,modes,[c1,c2])
+						push!(gateset,e)
+					end
+				end
+			end
+		end
+		return gateset
+	end
 end
 
 function buildRedudancyDict(gset)

@@ -76,6 +76,7 @@ function GI.init(::GameSpecAudit)
 	c = QCir{Hardware}()
 	t = rand(Audit,A_DEPTH)
 	atm = adjoint(t.m)
+	atm = ANCILLA_ARCH ? atm[mask_i,mask_j] : atm
 	return GameEnvAudit(c,t,atm,false)
 end
 
@@ -84,6 +85,7 @@ function GI.init(::GameSpecAudit, state)
 	c = QCir{Hardware}(copy(state.circuit))
 	t = QCir{Audit}(copy(state.target))
 	atm = sparse(adjoint(t.m))
+	atm = ANCILLA_ARCH ? atm[mask_i,mask_j] : atm
 	r = reward(c,atm)
 	return GameEnvAudit(c,t,atm,r)
 end
@@ -97,7 +99,9 @@ function GI.set_state!(game::GameEnvAudit, state)
 	if game.target.c != state.target
 		@debug "Diff target" game.target.c state.target
 		game.target = QCir{Audit}(state.target)
-		game.adj_m_target = adjoint(game.target.m)
+		atm = adjoint(game.target.m)
+		atm = ANCILLA_ARCH ? atm[mask_i,mask_j] : atm
+		game.adj_m_target = atm
 	end
 	return 
 end
@@ -119,7 +123,9 @@ end
 function GI.clone(game::GameEnvAudit)
 	circuit = copy(game.circuit)
 	target = copy(game.target)
-	return GameEnvAudit(circuit, target, adjoint(target.m), game.reward)
+	tm = adjoint(target.m)
+	tm = ANCILLA_ARCH ? tm[mask_i,mask_j] : tm
+	return GameEnvAudit(circuit, target, tm, game.reward)
 end
 
 # Action effect
@@ -136,8 +142,10 @@ GI.game_terminated(game::GameEnvAudit) = game.reward || length(game.circuit.c) â
 function GI.vectorize_state(::GameSpecAudit, state)
 	c = QCir{Hardware}(state.circuit).m
 	t = adjoint(QCir{Audit}(state.target).m)
-	m = mapCanonical(t*c)
-	vs = Float32[f(m[i,j]) for i in 1:DIM, j in 1:DIM, f in [real,imag]]
+	c = ANCILLA_ARCH ? c[mask_i,mask_j] : c
+	t = ANCILLA_ARCH ? t[mask_i,mask_j] : t
+	m = 2*mapCanonical(t*c)
+	vs = Float32[f(m[i,j]) for i in 1:DIM_OUT, j in 1:DIM_OUT, f in [real,imag]]
 	return vs
 end
 
