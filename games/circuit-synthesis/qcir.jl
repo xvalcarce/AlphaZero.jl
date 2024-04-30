@@ -1,4 +1,4 @@
-import LinearAlgebra: I
+import LinearAlgebra: I, normalize
 using Distributions
 using SparseArrays
 using Yao
@@ -80,7 +80,19 @@ function Base.rand(::Type{T},circuitLength::Int) where T<:Architecture
 			k += 1
 		end
 	end
-	return QCir{T}(c)
+	cir = QCir{T}(c)
+	if ANCILLA_ARCH
+		# Has to contain at least a CNOT for ANCILLA_ARCH
+		if !any(c .∈ H_CTRL_REF)
+			cir = rand(T,circuitLength)
+		end
+		# Select only if a valid unitary operation is produced
+		m = cir.m[mask_i,mask_j]
+		if !isapprox(normalize(adjoint(m)*m),MAT_ID_OUT)
+			cir = rand(T,circuitLength)
+		end
+	end
+	return cir
 end
 
 Base.rand(::Type{T}) where T<:Architecture = rand(T,rand(MIN_TARGET_DEPTH:MAX_TARGET_DEPTH))

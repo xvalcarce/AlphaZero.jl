@@ -34,6 +34,7 @@ const T_GATESET = buildGateSet(MODE, target_set)
 const T_REDUNDANCY = buildRedudancyDict(T_GATESET)
 # Hardware (compiler) gate 
 const H_GATESET = buildGateSet(MODE, hardware_set)
+const H_CTRL_REF = Ref([i for (i,g) in enumerate(H_GATESET) if typeof(g) == CtrlGate]) # idx of ctrl gates
 const H_GATESET_L = length(H_GATESET) # Length of the gateset
 const H_REDUNDANCY = buildRedudancyDict(H_GATESET)
 # check if gateset are the same
@@ -48,7 +49,7 @@ mask_i = 1:DIM_OUT
 mask_j = 1:DIM_OUT
 
 const MAT_ID = SparseMatrixCSC{ComplexF64}(I,DIM,DIM) # SparseMatrix Identity
-const MAT_ID_OUT = SparseMatrixCSC{ComplexF64}(I,DIM_OUT,DIM_OUT) # SparseMatrix Identity
+const MAT_ID_OUT = normalize(SparseMatrixCSC{ComplexF64}(I,DIM_OUT,DIM_OUT)) # SparseMatrix Identity ANCILLA_ARCH case
 const HASH_ID =  hash(mapCanonical(MAT_ID)) # Hash of "Id" for fidelity (used as a reward)
 
 # GameSpec 
@@ -73,7 +74,7 @@ if USE_GP_SYM
 	reward(u::QCir,t::SparseMatrixCSC) = HASH_ID == hash(mapCanonical(t*u.m))
 else
 	if ANCILLA_ARCH
-		reward(u::QCir,t::SparseMatrixCSC) = MAT_ID_OUT == mapCanonical(2*t*u.m[mask_i,mask_j]) # 2 from √(2) normalization
+		reward(u::QCir,t::SparseMatrixCSC) = MAT_ID_OUT == normalize(mapCanonical(t*u.m[mask_i,mask_j]))
 	else
 		reward(u::QCir,t::SparseMatrixCSC) = MAT_ID == mapCanonical(t*u.m)
 	end
@@ -84,8 +85,8 @@ GI.white_reward(game::GameEnv) :: Float64 = game.reward ? 1. : 0.
 function GI.init(::GameSpec)
 	c = QCir{Hardware}()
 	t = rand(DIST[],Target)
-	atm = adjoint(t.m)
-	atm = ANCILLA_ARCH ? atm[mask_i,mask_j] : atm
+	atm = ANCILLA_ARCH ? t.m[mask_i,mask_j] : t.m
+	atm = sparse(adjoint(atm))
 	return GameEnv(c,t,atm,false)
 end
 
@@ -93,8 +94,8 @@ end
 function GI.init(::GameSpec, state)
 	c = QCir{Hardware}(copy(state.circuit))
 	t = QCir{Target}(copy(state.target))
-	atm = sparse(adjoint(t.m))
-	atm = ANCILLA_ARCH ? atm[mask_i,mask_j] : atm
+	atm = ANCILLA_ARCH ? t.m[mask_i,mask_j] : t.m
+	atm = sparse(adjoint(atm))
 	r = reward(c,atm)
 	return GameEnv(c,t,atm,r)
 end
@@ -108,8 +109,8 @@ function GI.set_state!(game::GameEnv, state)
 	if game.target.c != state.target
 		@debug "Diff target" game.target.c state.target
 		game.target = QCir{Target}(state.target)
-		atm = adjoint(game.target.m)
-		atm = ANCILLA_ARCH ? atm[mask_i,mask_j] : atm
+		atm = ANCILLA_ARCH ? game.target.m[mask_i,mask_j] : game.target.m
+		atm = sparse(adjoint(atm))
 		game.adj_m_target = atm
 	end
 	return 
@@ -132,9 +133,9 @@ end
 function GI.clone(game::GameEnv)
 	circuit = copy(game.circuit)
 	target = copy(game.target)
-	tm = adjoint(target.m)
-	tm = ANCILLA_ARCH ? √(2)tm[mask_i,mask_j] : tm
-	return GameEnv(circuit, target, tm, game.reward)
+	atm = ANCILLA_ARCH ? target.m[mask_i,mask_j] : target.m
+	atm = sparse(adjoint(atm))
+	return GameEnv(circuit, target, atm, game.reward)
 end
 
 # Action effect
@@ -150,10 +151,10 @@ GI.game_terminated(game::GameEnv) = game.reward || length(game.circuit.c) ≥ MA
 # Vectorize repr of a state, fed to the NN
 function GI.vectorize_state(::GameSpec, state)
 	c = QCir{Hardware}(state.circuit).m
-	t = adjoint(QCir{Target}(state.target).m)
+	t = QCir{Target}(state.target).m
 	c = ANCILLA_ARCH ? c[mask_i,mask_j] : c
 	t = ANCILLA_ARCH ? t[mask_i,mask_j] : t
-	m = 2*mapCanonical(t*c)
+	m = normalize(mapCanonical(adjoint(t)*c))
 	vs = Float32[f(m[i,j]) for i in 1:DIM_OUT, j in 1:DIM_OUT, f in [real,imag]]
 	return vs
 end
@@ -177,7 +178,7 @@ end
 function GI.update_gspec(::GameSpec,itc::Int)
 	@info DIST[]
 	if USE_NORMAL_DIST
-		MEAN[] = min(max(MIN_MEAN_DEPTH, (itc + 3) ÷ 2), MAX_MEAN_DEPTH) # TODO : clean up magic number later
+		MEAN[] = min((itc+2*MIN_MEAN_DEPTH)÷2, MAX_MEAN_DEPTH)
 		DIST[] = tndist(MEAN[])
 		@info "Normal distribution mean incremented to $(MEAN[])."
 	end

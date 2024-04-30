@@ -75,8 +75,8 @@ GI.white_reward(game::GameEnvAudit) = game.reward ? 1 : 0
 function GI.init(::GameSpecAudit)
 	c = QCir{Hardware}()
 	t = rand(Audit,A_DEPTH)
-	atm = adjoint(t.m)
-	atm = ANCILLA_ARCH ? atm[mask_i,mask_j] : atm
+	atm = ANCILLA_ARCH ? t.m[mask_i,mask_j] : t.m
+	atm = sparse(adjoint(atm))
 	return GameEnvAudit(c,t,atm,false)
 end
 
@@ -84,8 +84,8 @@ end
 function GI.init(::GameSpecAudit, state)
 	c = QCir{Hardware}(copy(state.circuit))
 	t = QCir{Audit}(copy(state.target))
-	atm = sparse(adjoint(t.m))
-	atm = ANCILLA_ARCH ? atm[mask_i,mask_j] : atm
+	atm = ANCILLA_ARCH ? t.m[mask_i,mask_j] : t.m
+	atm = sparse(adjoint(atm))
 	r = reward(c,atm)
 	return GameEnvAudit(c,t,atm,r)
 end
@@ -99,8 +99,8 @@ function GI.set_state!(game::GameEnvAudit, state)
 	if game.target.c != state.target
 		@debug "Diff target" game.target.c state.target
 		game.target = QCir{Audit}(state.target)
-		atm = adjoint(game.target.m)
-		atm = ANCILLA_ARCH ? atm[mask_i,mask_j] : atm
+		atm = ANCILLA_ARCH ? game.target.m[mask_i,mask_j] : game.target.m
+		atm = sparse(adjoint(atm))
 		game.adj_m_target = atm
 	end
 	return 
@@ -123,9 +123,9 @@ end
 function GI.clone(game::GameEnvAudit)
 	circuit = copy(game.circuit)
 	target = copy(game.target)
-	tm = adjoint(target.m)
-	tm = ANCILLA_ARCH ? tm[mask_i,mask_j] : tm
-	return GameEnvAudit(circuit, target, tm, game.reward)
+	atm = ANCILLA_ARCH ? target.m[mask_i,mask_j] : target.m
+	atm = sparse(adjoint(atm))
+	return GameEnvAudit(circuit, target, atm, game.reward)
 end
 
 # Action effect
@@ -141,10 +141,10 @@ GI.game_terminated(game::GameEnvAudit) = game.reward || length(game.circuit.c) â
 # Vectorize repr of a state, fed to the NN
 function GI.vectorize_state(::GameSpecAudit, state)
 	c = QCir{Hardware}(state.circuit).m
-	t = adjoint(QCir{Audit}(state.target).m)
+	t = QCir{Target}(state.target).m
 	c = ANCILLA_ARCH ? c[mask_i,mask_j] : c
 	t = ANCILLA_ARCH ? t[mask_i,mask_j] : t
-	m = 2*mapCanonical(t*c)
+	m = normalize(mapCanonical(adjoint(t)*c))
 	vs = Float32[f(m[i,j]) for i in 1:DIM_OUT, j in 1:DIM_OUT, f in [real,imag]]
 	return vs
 end
