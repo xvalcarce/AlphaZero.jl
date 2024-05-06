@@ -81,26 +81,30 @@ if !ANCILLA_ARCH
 		return gateset
 	end
 else
-	function buildGateSet(modes::Int, gs::Dict)
+	function buildGateSet(modes::Int, ancilla_gs::Dict; reverse_cg=A_REVERSE_CTRL)
 		# Specific gateset builder for ancilla architecture
 		# single qubit gates only on last qubit
 		gateset = []
-		for g in gs["single_gate"]
+		for g in ancilla_gs["single_gate"]
 			e = Gate(g,modes)
 			push!(gateset,e)
 		end
 		# add all controlled gates target is always last qubit
-		for g in gs["ctrl_gate"]
+		for g in ancilla_gs["ctrl_gate"]
 			for c in 1:modes-1
 				e = CtrlGate(g,modes,[c])
 				push!(gateset,e)
+				if reverse_cg
+					e = CtrlGate(g,c,[modes])
+					push!(gateset,e)
+				end
 			end
 		end
 		if modes == 2
 			return gateset
 		end
 		# same for cc gates 
-		for g in gs["cctrl_gate"]
+		for g in ancilla_gs["cctrl_gate"]
 			for c1 in 1:modes-1
 				for c2 in 1:modes-1
 					if c1 != c2

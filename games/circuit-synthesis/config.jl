@@ -36,6 +36,9 @@ hardware_set = Dict("single_gate" => [H,S,S',T,T'],
 # namely, the depth of the compiled circuit can't exceed the depth of the current target circuit
 target_set = hardware_set
 
+# In case of ANCILLA_ARCH, wether to use reverse control gate too (control on ancilla)
+A_REVERSE_CTRL = false
+
 # Benchmark parameters
 A_DEPTH = 30 # testing on circuit of depth 30
 audit_set = hardware_set # audit circuit from the hardware_set
