@@ -141,7 +141,7 @@ GI.game_terminated(game::GameEnvAudit) = game.reward || length(game.circuit.c) â
 # Vectorize repr of a state, fed to the NN
 function GI.vectorize_state(::GameSpecAudit, state)
 	c = QCir{Hardware}(state.circuit).m
-	t = QCir{Target}(state.target).m
+	t = QCir{Audit}(state.target).m
 	c = ANCILLA_ARCH ? c[mask_i,mask_j] : c
 	t = ANCILLA_ARCH ? t[mask_i,mask_j] : t
 	m = normalize(mapCanonical(adjoint(t)*c))
