@@ -178,7 +178,7 @@ end
 function GI.update_gspec(::GameSpec,itc::Int)
 	@info DIST[]
 	if USE_NORMAL_DIST
-		MEAN[] = min((itc+2*MIN_MEAN_DEPTH)÷2, MAX_MEAN_DEPTH)
+		MEAN[] = min((itc+ITC_MEAN_INCREMENT*MIN_MEAN_DEPTH)÷ITC_MEAN_INCREMENT, MAX_MEAN_DEPTH)
 		DIST[] = tndist(MEAN[])
 		@info "Normal distribution mean incremented to $(MEAN[])."
 	end
