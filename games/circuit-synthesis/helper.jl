@@ -118,6 +118,21 @@ else
 	end
 end
 
+function buildCommutationDict(gset)
+	d = Dict{Int, Vector{Int}}()
+	l = length(gset)
+	for i in 1:l
+		d[i] = Int[]
+		for j in 1:l
+			c = sparse(gset[i].mat * gset[j].mat - gset[j].mat * gset[i].mat)
+            if c.nzval != ComplexF64[]
+				push!(d[i],j)
+            end
+		end
+	end
+	return d
+end
+
 function buildRedudancyDict(gset)
 	redundant = Dict{Vector{Int}, Int}()
 	# Single gate redundancy

@@ -32,11 +32,13 @@ const ELEM = DIM^2             # Number of complex element of a desntiy matrix
 # Target gate set
 const T_GATESET = buildGateSet(MODE, target_set)
 const T_REDUNDANCY = buildRedudancyDict(T_GATESET)
+const T_COMMUTATION = buildCommutationDict(T_GATESET)
 # Hardware (compiler) gate 
 const H_GATESET = buildGateSet(MODE, hardware_set)
 const H_CTRL_REF = Ref([i for (i,g) in enumerate(H_GATESET) if typeof(g) == CtrlGate]) # idx of ctrl gates
 const H_GATESET_L = length(H_GATESET) # Length of the gateset
 const H_REDUNDANCY = buildRedudancyDict(H_GATESET)
+const H_COMMUTATION = buildCommutationDict(H_GATESET)
 # check if gateset are the same
 const SAME_GATESET = (hardware_set == target_set)
 
