@@ -114,7 +114,7 @@ function GI.actions_mask(game::GameEnvAudit) :: Vector{Bool}
 	u = trues(length(H_GATESET))
 	length(game.circuit.c) == 0 && return u
 	for a in eachindex(u)
-		@inbounds u[a] = !isRedundant(game.circuit.c, UInt8(a), H_REDUNDANCY)
+		@inbounds u[a] = !isRedundant(game.circuit.c, UInt8(a), H_REDUNDANCY, H_COMMUTATION)
 	end
 	return u
 end

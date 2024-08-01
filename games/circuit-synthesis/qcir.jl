@@ -16,6 +16,12 @@ gateset(::Type{Hardware}) = H_GATESET
 redundancy(::Type{Target}) = T_REDUNDANCY
 redundancy(::Type{Hardware}) = H_REDUNDANCY
 
+# Commutation dict
+commutation(::Type{Target}) = T_COMMUTATION
+commutation(::Type{Hardware}) = H_COMMUTATION
+
+
+
 mutable struct QCir{T<:Architecture}
 	c::Vector{UInt8}
 	m::SparseMatrixCSC
@@ -53,27 +59,17 @@ end
 
 mapCanonical(qc::QCir) = mapCanonical(qc.m)
 
-function isRedundant(c::Vector{UInt8}, g::UInt8, red::Dict) :: Bool
-	lc = length(c)
-	lc == 0 && return false
-	for i in 1:min(3,lc)
-		if haskey(red, c[end-i+1:end]) 
-			red[c[end-i+1:end]] == g && return true
-		end
-	end
-	return false
-end
-
-isRedundant(qc::QCir{T},gate::UInt8) where T<:Architecture = isRedundant(qc.c,gate,redundancy(T))
+isRedundant(qc::QCir{T},gate::UInt8) where T<:Architecture = isRedundant(qc.c,gate,redundancy(T),commutation(T))
 
 function Base.rand(::Type{T},circuitLength::Int) where T<:Architecture
 	gset = gateset(T)
-	red = redundancy(T)
+	red = redundancy(T) 
+	com = commutation(T) 
 	l = length(gset);
 	k = 0; c = Vector{UInt8}();
 	while k < circuitLength
 		g = UInt8(rand(1:l))
-		if isRedundant(c,g,red)
+		if isRedundant(c,g,red,com)
 			continue
 		else
 			push!(c,g)

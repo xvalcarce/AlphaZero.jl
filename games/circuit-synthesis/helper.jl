@@ -125,7 +125,7 @@ function buildCommutationDict(gset)
 		d[i] = Int[]
 		for j in 1:l
 			c = sparse(gset[i].mat * gset[j].mat - gset[j].mat * gset[i].mat)
-            if c.nzval != ComplexF64[]
+            if c.nzval == ComplexF64[]
 				push!(d[i],j)
             end
 		end
@@ -134,34 +134,37 @@ function buildCommutationDict(gset)
 end
 
 function buildRedudancyDict(gset)
-	redundant = Dict{Vector{Int}, Int}()
+	redundant = Dict{Int, Vector{Vector{Int}}}()
 	# Single gate redundancy
+	for i in 1:length(gset)
+		redundant[i] = Int[]
+	end
 	for (i,lastGate) in enumerate(gset)
 		for (j,newGate) in enumerate(gset)
 			if lastGate.mat == adjoint(newGate.mat)
-				redundant[[i]] = j
+				push!(redundant[j],[i]) 
 			end
 		end
 	end
 	# Two gate redundancy insert gate other mode
-	for (l,n) in redundant
-		for (i, g) in enumerate(gset)
-			lg = gset[l[1]]
-			modes = isa(lg,Gate) ? [lg.target] : [lg.target, lg.ctrl]
-			if g!=l && g!=n
-				if isa(g,Gate)
-					if g.target ∉ modes
-						redundant[[l[1],i]] = n
-					end
-				else
-					if (g.target ∉ modes) && (g.ctrl ∉ modes)
-						redundant[[l[1],i]] = n
-					end
-				end
-			end
-		end
-	end
-	# Swap gate
+	#for (l,n) in redundant
+	#	for (i, g) in enumerate(gset)
+	#		lg = gset[l[1]]
+	#		modes = isa(lg,Gate) ? [lg.target] : [lg.target, lg.ctrl]
+	#		if g!=l && g!=n
+	#			if isa(g,Gate)
+	#				if g.target ∉ modes
+	#					redundant[[l[1],i]] = n
+	#				end
+	#			else
+	#				if (g.target ∉ modes) && (g.ctrl ∉ modes)
+	#					redundant[[l[1],i]] = n
+	#				end
+	#			end
+	#		end
+	#	end
+	#end
+	# No redundant Swaps
 	for (i,cx1) in enumerate(gset)
 		# Select CNOT
 		if isa(cx1,CtrlGate) && cx1.g == X && length(cx1.ctrl) == 1
@@ -170,13 +173,32 @@ function buildRedudancyDict(gset)
 				if isa(cx2,CtrlGate) && cx2.g == X && length(cx2.ctrl) == 1
 					# Select reverse CNOT
 					if cx1.target == cx2.ctrl[1] && cx2.target == cx1.ctrl[1]
-						redundant[[i,j,i]] = j 
+						push!(redundant[j],[i,j,i,j,i]) 
 					end
 				end
 			end
 		end
 	end
 	return redundant
+end
+
+function isRedundant(c::Vector{UInt8}, g::UInt8, red::Dict, com::Dict) :: Bool
+	lc = length(c)
+	lc == 0 && return false
+	rd = red[g]
+	for l in lc:-1:1
+		c_ =  c[1:l]
+		for r in rd
+			lr = length(r) # length of redundancy strin
+			lr > l && continue # continue if length greater than circuit length
+			c_[end-l+1:end] == r && return true # if matches redundancy string -> true
+			# println("\t check : ", c_[end-l+1:end], " vs ", r)
+		end
+		# continue while it commutes
+		g ∉ com[c_[end]] && return false
+		# println(g, " commute with: ", c_[end])
+	end
+	return false
 end
 
 if USE_GP_SYM
