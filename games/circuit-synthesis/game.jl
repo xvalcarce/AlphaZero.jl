@@ -26,9 +26,8 @@ const DIST = USE_NORMAL_DIST ? Ref(tndist(MEAN[])) : Ref(BiasUniform())
 #Define QCir type and useful functions
 include("./qcir.jl")
 
-const DIM = 2^MODE # Size of the matrix representing a circuit
-const DIM_OUT = ANCILLA_ARCH ? DIM÷2 : DIM # Size of the output matrix
-const ELEM = DIM^2             # Number of complex element of a desntiy matrix 
+const DIM = 2^MODE # Size of the matrix representing a CIRCUIT
+const DIM_OUT = ANCILLA_ARCH ? DIM÷(2^ANCILLA_MODE) : DIM # Size of the output matrix
 # Target gate set
 const T_GATESET = buildGateSet(MODE, target_set)
 const T_REDUNDANCY = buildRedudancyDict(T_GATESET)

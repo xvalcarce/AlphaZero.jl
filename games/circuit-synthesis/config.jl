@@ -1,6 +1,7 @@
 # Game parameters
-const MODE = 4                # Number of modes
+const MODE = 5                # Number of modes
 const ANCILLA_ARCH = true     # Whether to use the ancilla architecture
+const ANCILLA_MODE = 2        # Number of ancilla mode, deducted from MODE
 const MAX_DEPTH = 40          # Max depth of circuit to explore (excluding the target)
 
 const MIN_TARGET_DEPTH = 5    # Min number of gate of the target circuit
