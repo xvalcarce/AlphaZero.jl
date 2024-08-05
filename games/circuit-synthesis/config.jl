@@ -23,6 +23,9 @@ const WEIGHT = 0.25            # when rand() > WEIGHT generate a circuit of dept
 # Map all the state equivalent to a global phase to the same matrix
 const USE_GP_SYM = false
 
+# Penalize adding new gates to get compressed circuits
+const NEGATIVE_REWARD = true
+
 # Target gate set from which target circuits for training will be created
 target_set = Dict("single_gate" => [H,Z,X,T,T',S,S'],
 				"ctrl_gate" => [X,Z],

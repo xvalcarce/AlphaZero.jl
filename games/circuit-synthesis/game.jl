@@ -80,7 +80,11 @@ else
 		reward(u::QCir,t::SparseMatrixCSC) = MAT_ID == mapCanonical(t*u.m)
 	end
 end
-GI.white_reward(game::GameEnv) :: Float64 = game.reward ? 1. : 0.
+if NEGATIVE_REWARD
+	GI.white_reward(game::GameEnv) :: Float64 = game.reward ? 0. : -1.
+else
+	GI.white_reward(game::GameEnv) :: Float64 = game.reward ? 1. : 0.
+end
 
 # Init with random target circuit and empty cir
 function GI.init(::GameSpec)
